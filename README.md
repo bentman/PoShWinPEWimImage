@@ -11,6 +11,7 @@ This repository contains a collection of PowerShell scripts for customizing Wind
 1. Clone or download the repository to your local machine.
 2. Open PowerShell and navigate to the repository's directory.
 3. Dot-source the required scripts to load the functions into your current PowerShell session.
+
    Example: `. .\Use-WimImageFunctions.ps1`
 4. You can now use the functions provided by the scripts in your own scripts or execute them directly in the PowerShell session.
 
@@ -39,5 +40,3 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License
 along with this script.  If not, see <https://www.gnu.org/licenses/>.
-
-
