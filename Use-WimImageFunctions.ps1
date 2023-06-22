@@ -28,8 +28,8 @@
 
 .NOTES
     Version: 2.0
-    Author: Bentley
     Creation Date: 2023-06-10
+    Copyright (c) 2023 https://github.com/bentman
     https://github.com/bentman/PoShWinPEWimImage
 #>
 
