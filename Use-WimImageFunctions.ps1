@@ -4,10 +4,8 @@
     Script functionality is specifically designed for customizing WinPE and WinRE images, but also works with WinOS.
     This script does not execute any actions and is intended to be dot-sourced for use in other scripts.
     Dot-sourcing is a method in PowerShell that allows you to call functions in your shell from an external script.
-
 .EXAMPLE
     . .\Use-WimImageFunctions.ps1
-
 .DESCRIPTION
     The script provides the following functions:
     - Export-WimImage: Exports a WIM image with a specified index (esp. after a cleanup).
@@ -16,16 +14,13 @@
     - Invoke-WimImageCleanup: Performs cleanup operations on a mounted image (esp. after adding updates).
     - Add-WimImageOsdPackages: Adds common OSD (Operating System Deployment) packages to a mounted image.
     - Enable-WimOptFeature: # Enable Features in a mounted WimImage by name (ex. NetFX3). Path to source files can be specified.
-
     #### Because DISM.exe output format is easy to read ####
     - Get-WimImage: Lists details of a WIM image using DISM.exe (for logging).
     - Get-WimDrivers: Lists drivers using DISM.exe from a mounted image (for logging).
     - Get-WimPackage: Lists packages using DISM.exe from a mounted image (for logging).
     - Get-WimOptFeature: Lists optional features using DISM.exe from a mounted image (for logging).
-
 .LINK
     More information about DISM module cmdlets: https://docs.microsoft.com/en-US/powershell/module/dism
-
 .NOTES
     Version: 2.0
     Creation Date: 2023-06-10
