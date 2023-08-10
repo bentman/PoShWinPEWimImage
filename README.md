@@ -25,9 +25,10 @@ The script includes the following functions:
 2. Open PowerShell and navigate to the repository's directory.
 3. Dot-source the script to load the functions into your current PowerShell session.
    Example: `. .\Use-WimImageFunctions.ps1`
-4. Utilize the loaded functions in your scripts or directly execute them in the PowerShell session.
+5. Utilize the loaded functions in your scripts or directly execute them in the PowerShell session.
 
-**Note:** These functions are provided as reference tools and might require adaptations to suit your specific customization needs. Always ensure a thorough understanding of the functions before using them in a production environment.
+**Note:** These functions are provided as reference tools and might require adaptations to suit your specific customization needs. 
+Always ensure a thorough understanding of the functions before using them in a production environment.
 
 ### Requirements
 
