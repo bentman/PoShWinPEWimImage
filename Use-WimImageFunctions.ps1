@@ -61,8 +61,7 @@ function Export-WimImage { # Function to export a specific index of a Windows Im
 function Split-WimImage { # Function to split a Windows Imaging (WIM) image into smaller files
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)]
-        [string]$wimImagePath  # Path to the source WIM file
+        [Parameter(Mandatory=$true)] [string]$wimImagePath  # Path to the source WIM file
     )
     $wimImageDirectory = Split-Path -Path $wimImagePath -Parent
     $wimImageBaseName = Split-Path -Path $wimImagePath -Leaf
