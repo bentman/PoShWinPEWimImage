@@ -1,23 +1,35 @@
-# WinPE/WinRE Customization Scripts
+### Overview
 
-This repository contains a collection of PowerShell scripts for customizing Windows Preinstallation Environment (WinPE) and Windows Recovery Environment (WinRE) images. These scripts leverage the DISM (Deployment Image Servicing and Management) module to perform various operations on WIM (Windows Imaging) files.
+This PowerShell script, **Use-WimImageFunctions.ps1**, is designed to provide a set of functions that facilitate customization of Windows Preinstallation Environment (WinPE) and Windows Recovery Environment (WinRE) images. The script utilizes the DISM (Deployment Image Servicing and Management) module to perform various operations on WIM (Windows Imaging) files.
 
-## Scripts
+### Included Functions
 
-- **Use-WimImageFunctions.ps1**: This script provides functions for working with WIM files using DISM cmdlets. It includes functions to export, split, add drivers, perform cleanup, and add OSD packages to WIM images.
+The script includes the following functions:
 
-## Usage
+- `Export-WimImage`: Exports a specific index of a Windows Imaging (WIM) file.
+- `Split-WimImage`: Splits a Windows Imaging (WIM) image into smaller files.
+- `Add-WimDriver`: Adds a single driver to a mounted WIM file.
+- `Invoke-WimImageCleanup`: Performs cleanup operations on a mounted WIM file.
+- `Add-WimImageOsdPackages`: Adds OSD packages to a mounted image.
+- `Enable-WimOptFeature`: Enables features in a mounted WimImage by name.
+- `Get-WimImage`: Lists details of a WIM Image using DISM.exe for logging.
+- `Get-WimDrivers`: Lists drivers using DISM.exe from a mounted image for logging.
+- `Get-WimPackage`: Lists packages using DISM.exe from a mounted image for logging.
+- `Get-WimOptFeature`: Lists optional features using DISM.exe from a mounted image for logging.
+- `Get-WimImageCmBoot`: Retrieves information and settings from an active CM Boot Image.
+- `Remove-WimImageCmBoot`: Removes a CM Boot Image by name and its associated files.
+
+### Usage Guidelines
 
 1. Clone or download the repository to your local machine.
 2. Open PowerShell and navigate to the repository's directory.
-3. Dot-source the required scripts to load the functions into your current PowerShell session.
-
+3. Dot-source the script to load the functions into your current PowerShell session.
    Example: `. .\Use-WimImageFunctions.ps1`
-4. You can now use the functions provided by the scripts in your own scripts or execute them directly in the PowerShell session.
+4. Utilize the loaded functions in your scripts or directly execute them in the PowerShell session.
 
-Please note that these scripts are intended to be used as a reference and may require modifications to suit your specific customization needs. Make sure to review and understand the scripts before using them in a production environment.
+**Note:** These functions are provided as reference tools and might require adaptations to suit your specific customization needs. Always ensure a thorough understanding of the functions before using them in a production environment.
 
-## Requirements
+### Requirements
 
 - Windows operating system with PowerShell installed.
 - Windows Assessment and Deployment Kit (ADK) installed.
