@@ -247,11 +247,11 @@ function Get-WimImageCmBoot { # Function to get information and settings from an
     try {
         $infCmBootImage = Get-CMBootImage -Name $infoCmBootImage
         $data = "Getting CM boot image information from $infoCmBootImage..." + `
+        "`nPriority:                          $($infCmBootImage.Priority)" + `
         "`nDescription:                       $($infCmBootImage.Description)"
         "`nDeployFromPxeDistributionPoint:    $($infCmBootImage.DeployFromPxeDistributionPoint)" + `
         "`nEnableLabShell (aka 'F8'):         $($infCmBootImage.EnableLabShell)" + `
-        "`nPriority:                          $($infCmBootImage.Priority)" + `
-        "`nScratchSpace:                      $($infCmBootImage.ScratchSpace)" + `
+        "`nScratchSpace (mostly moot):        $($infCmBootImage.ScratchSpace)" + `
         "`nOptionalComponents:                $($infCmBootImage.OptionalComponents)" + `
         "`nReferencedDrivers:                 $($infCmBootImage.ReferencedDrivers)" + `
         ""
