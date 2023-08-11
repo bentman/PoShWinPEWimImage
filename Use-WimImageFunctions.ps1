@@ -125,7 +125,7 @@ function Split-WimImage { # Function to split a Windows Imaging (WIM) image into
             Write-Host "`nDeleting the original WIM file..."
             Remove-Item -Path $wimImagePath -Force
         } else {
-            throw "`nNo .swm files were created. The original WIM file will not be deleted."
+            throw "`nNo *.swm files were created & original WIM file will not be deleted."
         }
     } catch {
         Write-Host "`nAn error occurred while splitting the image:"
@@ -206,7 +206,7 @@ function Get-WimDrivers { # Function to list drivers using DISM.exe from a mount
     }
 }
 
-function Get-WimPackage { # Function to list packages using DISM.exe from a mounted image (for logging)
+function Get-WimPackages { # Function to list packages using DISM.exe from a mounted image (for logging)
     [CmdletBinding()]
     param (
         [Parameter(Mandatory = $true)][string]$mountDir   # Path to the mounted image directory
