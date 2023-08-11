@@ -268,7 +268,7 @@ function Get-WimImageCmBoot { # Function to get information and settings from an
 
 function Remove-WimImageCmBoot { # Function to remove a CM Boot Image by name and its associated files
     # WARNING: Requires running from CM Site Server PSDrive location & UNC path access to Site Content
-    # USAGE:
+    # USAGE: Remove-WimImageCmBoot -remCmBootImage $remCmBootImageByName
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)][string]$remCmBootImage   # Name of the CM Boot Image to remove
