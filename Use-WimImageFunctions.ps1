@@ -1,7 +1,7 @@
 ﻿############################## DECLARATION #############################
 $scriptName = (Get-PSCallStack).InvocationInfo.MyCommand.Name
-$scriptVer = "2.0"
-Write-Host "`nDot-Sourcing $scriptName v$scriptVer..."
+$scriptVer = "2.1" # Align Variables + Usage Examples
+Write-Host "`nDot-Sourcing functions in $scriptName v$scriptVer..."
 
 ############################## VERIFICATION ############################
 # Check if DISM module is available and loaded
@@ -17,6 +17,7 @@ if (-not $moduleAvailable) {
     }
 } else {
     Write-Host "`nDISM module confirmed available and loaded."
+    $moduleAvailable
 }
 
 # ADK Architecture version (x86 removed from ADK, arm64 is not utilized)
@@ -29,7 +30,8 @@ $adkOptComp = "$adkArch\WinPE_OCs"
 $OsdOptComps = Join-Path -Path $adkRoot -ChildPath $adkOptComp
 # Ensure the ADK Optional Components are available
 if (-not (Test-Path -Path $OsdOptComps)) {Write-Host "`nADK not found in default location."; break}
-else {Write-Host "`nADK Optional Components are available at default location."}
+else {Write-Host "`nADK Optional Components are available at default location."
+    Write-Host "`nADK Root = $adkRoot"}
 
 # Edit array of optional components to be added to the WimImage when using Add-WimImageOsdOptComps function
 $OsdOptComps = @( # These are the most common blend of "traditional" and "modern" OC's for CM/Intune
@@ -46,74 +48,52 @@ $OsdOptComps = @( # These are the most common blend of "traditional" and "modern
     "WinPE-WinReCfg",
     "WinPE-PlatformId"
 )
-Write-Host "`nADK Optional Components to be added from this session..."
+Write-Host "`nADK Optional Components to be added during this session..."
 foreach ($OsdOptComp in $OsdOptComps) {Write-Host "    $OsdOptComp"}
 Write-Host "" # Empty line for logging readability
 
 ############################## FUNCTIONS ###############################
-function Invoke-WimImageCleanup { # Function to perform cleanup operations on a mounted Windows Imaging (WIM) file
-    # USAGE: Invoke-WimImageCleanup -mountDir $mountDir 
+function Mount-WimImage { # Mount WimImage for customization
+    # USAGE: Mount-WimImage -wimImagePath $wimImagePath -mountDir $mountDir -wimIndex 1
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)][string]$mountDir  # Path to the mounted WIM directory
+        # Full Path and File Name ($_.FullName) of WimImage to be mounted
+        [Parameter(Mandatory=$true)] [string]$wimImagePath,
+        # Folder where WimImage will be mounted for servicing
+        [Parameter(Mandatory=$true)] [string]$mountDir,
+        # WimImage index to be mounted
+        [Parameter(Mandatory=$true)] [int]$wimIndex
     )
     try {
-        Write-Host "`nPerforming cleanup operations on mounted WIM file at $mountDir..."
-        & Dism "/Image:$mountDir" '/Cleanup-Image' '/StartComponentCleanup' '/ResetBase'
+        Write-Host "`nMounting the WimImage at $wimImagePath to $mountDir using index $wimIndex..."
+        Mount-WindowsImage -ImagePath $wimImagePath -Path $mountDir -Index $wimIndex
     } catch {
-        Write-Host "`nAn error occurred while performing cleanup operations."
+        Write-Host "`nAn error occurred while mounting the WimImage:"
         Write-Error $_.Exception.Message
-    }
-}
-    
-function Export-WimImage { # Function to export a specific index of a Windows Imaging (WIM) file
-    # USAGE: Export-WimImage -sourceImagePath $wimImagePath -sourceIndex 1
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)][string]$sourceWim,  # Path to the source WIM file
-        [Parameter(Mandatory=$true)][int]$sourceWimIndex          # Index of the image to export
-    )
-    # Rename the source WIM file to a temporary name
-    $tempImageName = [IO.Path]::ChangeExtension($sourceWim, "tmp")
-    try {
-        Write-Host "`nRenaming the source WIM file to a temporary file..."
-        Move-Item -Path $sourceWim -Destination $tempImageName
-        # Export the WIM image with the specified index
-        Write-Host "`nExecuting the WIM file export operation..."
-        Export-WindowsImage -SourceImagePath $tempImageName -SourceIndex $sourceWimIndex -DestinationImagePath $sourceWim
-        # Check if export was successful and delete the temporary file
-        if (Test-Path -Path $sourceWim) {
-            Write-Host "`nExport successful, deleting the temporary file..."
-            Remove-Item -Path $tempImageName
-        } else {
-            throw "`nExport operation failed. Exported WIM file does not exist. Reverting to original WIM file name."
-        }
-    } catch {
-        Write-Host "`nAn error occurred while exporting the image index: $sourceWimIndex "
-        Write-Error $_.Exception.Message
-        Write-Host "`nReverting to the original WIM file name..."
-        Move-Item -Path $tempImageName -Destination $sourceWim
     }
 }
 
-function Add-WimImageOsdOptComps { # Function to add OSD packages to a mounted WIM image. 
+function Add-WimImageOsdOptComps { # Function to add OSD packages to a mounted WimImage. 
     # USAGE: Add-WimImageOsdOptComps -mountDir $mountDir -OsdOptComp $OsdOptComps -wimImageLang 'en-us'
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)][string]$mountDir,
-        [Parameter(Mandatory=$true)][string]$wimImageLang,
-        [Parameter(Mandatory=$false)][string[]]$OsdOptComps
+        # Folder Path to mounted WimImage
+        [Parameter(Mandatory=$true)] [string]$mountDir,
+        # Language of mounted WimImage
+        [Parameter(Mandatory=$false)] [string]$wimImageLang = 'en-US',
+        # Array containing list of Optional Components to add
+        [Parameter(Mandatory=$false)] [string[]]$OsdOptComps
     )
     if (-not $wimImageOc) { Write-Host "ADK WinPE_OCs not found in default location"; break }
     try { foreach ($component in $OsdOptComps) {
-            $componentCab = "$component.cab"
-            $packagePath = Join-Path -Path $wimImageOc -ChildPath $componentCab
-            if (Test-Path -Path $packagePath) {
+            $compCab = "$component.cab"
+            $cabPath = Join-Path -Path $wimImageOc -ChildPath $compCab
+            if (Test-Path -Path $cabPath) {
                 Write-Host "`nAdding $component to WimImage..."
-                Add-WindowsPackage -Path $mountDir -PackagePath $packagePath
-            } else {Write-Host "`nCannot find $component at $packagePath"}
-            $languageCab = "$wimImageLang\$component" + "_$($wimImageLang).cab"
-            $languagePackPath = Join-Path -Path $wimImageOc -ChildPath $languageCab
+                Add-WindowsPackage -Path $mountDir -PackagePath $cabPath
+            } else {Write-Host "`nCannot find $component at $cabPath"}
+            $langCab = "$wimImageLang\$component" + "_$($wimImageLang).cab"
+            $langCabPath = Join-Path -Path $wimImageOc -ChildPath $langCab
             if (Test-Path -Path $languagePackPath) {
                 Write-Host "`nAdding $wimImageLang language pack for $component to WimImage..."
                 Add-WindowsPackage -Path $mountDir -PackagePath $languagePackPath
@@ -125,27 +105,110 @@ function Add-WimImageOsdOptComps { # Function to add OSD packages to a mounted W
     }
 }
 
-function Split-WimImage { # Function to split a Windows Imaging (WIM) image into smaller files
+function Add-WimPackage { # Add Cumulative Update by *.msu (or Optional Component by *.cab) to a mounted WimImage
+    # USAGE: Add-WimPackage -mountDir $mountDir -PackagePath $cabPath
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)] [string]$wimImagePath  # Path to the source WIM file
+        # Folder Path to mounted WimImage
+        [Parameter(Mandatory=$true)] [string]$mountDir,
+        # Full Path and File Name ($_.FullName) of *.msu (or *.cab)
+        [Parameter(Mandatory=$true)] [string]$cabPath
+    )
+    try {
+        Write-Host "`nAdding package $cabPath to the mounted WimImage at $mountDir..."
+        Add-WindowsPackage -Path $mountDir -PackagePath $cabPath
+    } catch {
+        Write-Host "`nAn error occurred while adding the package:"
+        Write-Error $_.Exception.Message
+    }
+}
+
+function Dismount-WimImage { # Dismount WimImage & Save
+    # USAGE: Dismount-WimImage -mountDir $mountDir
+    [CmdletBinding()]
+    param(
+        # Folder Path to mounted WimImage
+        [Parameter(Mandatory=$true)] [string]$mountDir
+    )
+    try {
+        Write-Host "`nDismounting and saving the mounted WimImage at $mountDir..."
+        Dismount-WindowsImage -Path $mountDir -Save
+    } catch {
+        Write-Host "`nAn error occurred while dismounting and saving the WimImage:"
+        Write-Error $_.Exception.Message
+    }
+}
+
+function Invoke-WimImageCleanup { # Function to perform cleanup operations on a mounted Windows Image (WIM) file
+    # USAGE: Invoke-WimImageCleanup -mountDir $mountDir 
+    [CmdletBinding()]
+    param(
+        # Path to the mounted WIM directory
+        [Parameter(Mandatory=$true)] [string]$mountDir
+    )
+    try {
+        Write-Host "`nPerforming cleanup operations on mounted WimImage at $mountDir..."
+        & Dism "/Image:$mountDir" '/Cleanup-Image' '/StartComponentCleanup' '/ResetBase'
+    } catch {
+        Write-Host "`nAn error occurred while performing cleanup operations."
+        Write-Error $_.Exception.Message
+    }
+}
+
+function Export-WimImage { # Function to export a specific index of a Windows Image (WIM) file
+    # USAGE: Export-WimImage -exportBootWim $exportWimImage -sourceIndex 1
+    [CmdletBinding()]
+    param(
+        # Path to the source WimImage to be exported
+        [Parameter(Mandatory=$true)] [string]$exportWimImage,
+        # Index of the WimImage to export
+        [Parameter(Mandatory=$true)] [int]$exportWimIndex
+    )
+    $tempImageName = [IO.Path]::ChangeExtension($exportWimIndex, "tmp")
+    try {
+        # Rename the source WimImage to a temporary name
+        Write-Host "`nRenaming the source WimImage to a temporary file..."
+        Move-Item -Path $exportWimIndex -Destination $tempImageName
+        # Export the WimImage with the specified index
+        Write-Host "`nExecuting the WimImage export operation..."
+        Export-WindowsImage -SourceImagePath $tempImageName -SourceIndex $exportWimIndex -DestinationImagePath $exportWimImage
+        # Check if export was successful and delete the temporary file
+        if (Test-Path -Path $exportWimIndex) {
+            Write-Host "`nExport successful, deleting the temporary file..."
+            Remove-Item -Path $tempImageName
+        } else {
+            throw "`nExport operation failed. Exported WimImage does not exist. Reverting to original WimImage name."
+        }
+    } catch {
+        Write-Host "`nAn error occurred while exporting the image index: $exportWimIndex "
+        Write-Error $_.Exception.Message
+        Write-Host "`nReverting to the original WimImage name..."
+        Move-Item -Path $tempImageName -Destination $exportWimIndex
+    }
+}
+
+function Split-WimImage { # Function to split a Windows Image (WIM) image into *.swm files <4000mb
+    [CmdletBinding()]
+    param(
+        # Path to the source WimImage to split
+        [Parameter(Mandatory=$true)] [string]$wimImagePath  
     )
     $wimImageDirectory = Split-Path -Path $wimImagePath -Parent
     $wimImageBaseName = Split-Path -Path $wimImagePath -Leaf
     $wimImageBaseName = [System.IO.Path]::GetFileNameWithoutExtension($wimImageBaseName)
-    $destinationImagePath = Join-Path -Path $wimImageDirectory -ChildPath "$($wimImageBaseName).swm"
+    $drvDestinationImagePath = Join-Path -Path $wimImageDirectory -ChildPath "$($wimImageBaseName).swm"
     try {
-        Write-Host "`nSplitting the WIM file into smaller files, each less than 4GB..."
+        Write-Host "`nSplitting the WimImage into smaller files, each less than 4GB..."
         Split-WindowsImage `
             -ImagePath $wimImagePath `
-            -DestinationImagePath $destinationImagePath `
+            -DestinationImagePath $drvDestinationImagePath `
             -FileSizeMB 4000
         $SWMFiles = Get-ChildItem -Path $wimImageDirectory -Filter "$($wimImageBaseName)*.swm"
         if ($SWMFiles.Count -gt 0) {
-            Write-Host "`nDeleting the original WIM file..."
+            Write-Host "`nDeleting the original WimImage..."
             Remove-Item -Path $wimImagePath -Force
         } else {
-            throw "`nNo *.swm files were created & original WIM file will not be deleted."
+            throw "`nNo *.swm files were created & original WimImage will not be deleted."
         }
     } catch {
         Write-Host "`nAn error occurred while splitting the image:"
@@ -153,19 +216,21 @@ function Split-WimImage { # Function to split a Windows Imaging (WIM) image into
     }
 }
 
-function Add-WimDriver { # Function to add a single driver to a mounted Windows Imaging (WIM) file
+function Add-WimDriver { # Function to add a single driver to a mounted Windows Image (WIM) file
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)][string]$mountDir,      # Path to the mounted WIM directory
-        [Parameter(Mandatory=$true)][string]$driverPath      # Path to the driver to be added
+        # Folder Path to mounted WimImage
+        [Parameter(Mandatory=$true)] [string]$mountDir,
+        # Full Path and File Name ($_.FullName) to the driver to be added
+        [Parameter(Mandatory=$true)] [string]$driverPath
     )
     try {
         $driverDir = Split-Path -Path $driverPath -Parent
-        $driverFileName = Split-Path -Path $driverPath -Leaf
+        $driverFileLocation = Split-Path -Path $driverPath -Leaf
         Write-Host "`nChanging directory to $driverDir..."
         Push-Location $driverDir
-        Write-Host "`nAdding driver $driverFileName to the mounted WIM file at $mountDir..."
-        Add-WindowsDriver -Path $mountDir -Driver $driverFileName
+        Write-Host "`nAdding driver $driverFileLocation to the mounted WimImage at $mountDir..."
+        Add-WindowsDriver -Path $mountDir -Driver $driverFileLocation
     } catch {
         Write-Host "`nAn error occurred while adding the driver: $_"
         Write-Error $_.Exception.Message
@@ -175,267 +240,11 @@ function Add-WimDriver { # Function to add a single driver to a mounted Windows 
     }
 }
 
-function Enable-WimOptFeature { # Function to enable features in a mounted WimImage by name
+function Remove-WimDriversAll { # Remove all OEM*.inf drivers from a mounted WimImage
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)][string]$mountDir,       # Path to the mounted WIM directory
-        [Parameter(Mandatory=$true)][string]$FeatureName,    # Name of the feature to enable
-        [Parameter(Mandatory=$false)][string]$sourcePath     # Optional source path for the feature
-    )
-    try {
-        if ($sourcePath) {
-            Write-Host "`nEnabling feature $FeatureName in the mounted WIM file at $mountDir with source path $sourcePath..."
-            Enable-WindowsOptionalFeature -Path $mountDir -FeatureName $FeatureName -All -Source $sourcePath
-        } else {
-            Write-Host "`nEnabling feature $FeatureName in the mounted WIM file at $mountDir..."
-            Enable-WindowsOptionalFeature -Path $mountDir -FeatureName $FeatureName -All
-        }
-    } catch {
-        Write-Host "`nAn error occurred while enabling the feature:"
-        Write-Error $_.Exception.Message
-    }
-}
-
-function Get-WimImage { # Function to list details of a WIM Image using DISM.exe (for logging)
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)][string]$wimImagePath    # Path to the WIM image
-    )
-    try {
-        Write-Host "`nRetrieving WIM image details for: $wimImagePath"
-        $output = & dism.exe "/Get-ImageInfo /ImageFile:$wimImagePath /Format:Table"
-        Write-Host $output
-    } catch {
-        Write-Host "`nFailed to retrieve WIM image details for $wimImagePath"
-        Write-Error $_.Exception.Message
-    }
-}
-
-function Get-WimDrivers { # Function to list drivers using DISM.exe from a mounted image (for logging)
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)][string]$mountDir    # Path to the mounted image directory
-    )
-    try {
-        Write-Host "`nRetrieving drivers from mounted WIM file at $mountDir..."
-        $output = & dism.exe "/Get-Drivers /Image:$mountDir /Format:Table"
-        Write-Host $output
-    } catch {
-        Write-Host "`nAn error occurred while retrieving drivers from $mountDir."
-        Write-Error $_.Exception.Message
-    }
-}
-
-function Get-WimPackages { # Function to list packages using DISM.exe from a mounted image (for logging)
-    [CmdletBinding()]
-    param (
-        [Parameter(Mandatory = $true)][string]$mountDir   # Path to the mounted image directory
-    )
-    try {
-        Write-Host "`nRetrieving packages from mounted WIM file at $mountDir..."
-        $output = & dism.exe "/Get-Packages /Image:$mountDir /Format:Table"
-        Write-Host $output
-    } catch {
-        Write-Host "`nAn error occurred while retrieving packages from $mountDir."
-        Write-Error $_.Exception.Message
-    }
-}
-
-function Get-WimOptFeature { # Function to list optional features using DISM.exe from a mounted image (for logging)
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)][string]$mountDir   # Path to the mounted image directory
-    )
-    try {
-        Write-Host "`nRetrieving optional features from mounted WIM file at $mountDir..."
-        $output = & dism.exe "/Image:$mountDir /Get-Features /Format:Table"
-        Write-Host $output
-    } catch {
-        Write-Host "`nAn error occurred while retrieving optional features from $mountDir."
-        Write-Error $_.Exception.Message
-    }
-}
-
-function Get-WimImageCmBoot { # Function to get information and settings from an active CM Boot Image
-    # WARNING: Requires running from CM Site Server PSDrive location & UNC path access to Site Content
-    # USAGE: Get-WimImageCmBoot -infoCmBootImage $infoCmBootImage -infoOutput $infoOutput
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)] [string]$infoCmBootImage,
-        [Parameter(Mandatory=$false)] [string]$infoOutput = "$env:USERPROFILE\Documents\infoCmBootImage.txt"
-    )
-    try {
-        $infCmBootImage = Get-CMBootImage -Name $infoCmBootImage
-        $data = "Getting CM boot image information from $infoCmBootImage..." + `
-        "`nPriority:                          $($infCmBootImage.Priority)" + `
-        "`nDescription:                       $($infCmBootImage.Description)"
-        "`nDeployFromPxeDistributionPoint:    $($infCmBootImage.DeployFromPxeDistributionPoint)" + `
-        "`nEnableLabShell (aka 'F8'):         $($infCmBootImage.EnableLabShell)" + `
-        "`nScratchSpace (mostly moot):        $($infCmBootImage.ScratchSpace)" + `
-        "`nOptionalComponents:                $($infCmBootImage.OptionalComponents)" + `
-        "`nReferencedDrivers:                 $($infCmBootImage.ReferencedDrivers)" + `
-        ""
-        Push-Location -Path $env:SystemDrive
-        Write-Host $data
-        Out-File -FilePath "$infoOutput\INFO-$infoCmBootImage.txt" -InputObject $data
-        Pop-Location
-    } catch {
-        Write-Host "`nAn error occurred while getting CM boot image information from $infoCmBootImage."
-        Write-Error $_.Exception.Message
-        Pop-Location
-    }
-}
-
-function Remove-WimImageCmBoot { # Function to remove a CM Boot Image by name and its associated files
-    # WARNING: Requires running from CM Site Server PSDrive location & UNC path access to Site Content
-    # USAGE: Remove-WimImageCmBoot -remCmBootImage $remCmBootImageByName
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)][string]$remCmBootImage   # Name of the CM Boot Image to remove
-    )
-    # Get the CM Boot Image object to be removed
-    $removeCmBootImage = Get-CMBootImage -Name $remCmBootImage
-    try {
-        Write-Host "`nRemoving CM boot image $remCmBootImage..."
-        Remove-CMBootImage -Name $removeCmBootImage -Force
-    } catch {
-        Write-Host "`nAn error occurred while removing CM boot image $remCmBootImage."
-        Write-Error $_.Exception.Message
-    }
-    # Remove the associated files and folders
-    Push-Location -Path $env:SystemDrive
-    try {
-        $removeCmBootImagePathFolder = (Get-Item -Path $removeCmBootImage.ImagePath).Parent
-        if ($removeCmBootImage.ImagePath) {Remove-Item -Path $removeCmBootImage.ImagePath}
-        if ($removeCmBootImage.PkgSourcePath) {Remove-Item -Path $removeCmBootImage.PkgSourcePath}
-        if (-not (Get-ChildItem -Path $removeCmBootImagePathFolder.FullName)) {
-            Remove-Item -Path $removeCmBootImagePathFolder.FullName -Force}
-    } catch {
-        Write-Host "`nAn error occurred while removing CM boot files $remCmBootImage."
-        Write-Error $_.Exception.Message
-    }
-Pop-Location
-}
-
-############# Convenient Redundant Functions #############
-
-function Mount-WimImage { # Mount WimImage for customization
-    # USAGE: Mount-WimImage -wimImagePath $wimImagePath -mountDir $mountDir -Index 1
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)][string]$wimImagePath,
-        [Parameter(Mandatory=$true)][string]$mountDir,
-        [Parameter(Mandatory=$true)][int]$Index
-    )
-    try {
-        Write-Host "`nMounting the WIM image at $wimImagePath to $mountDir using index $Index..."
-        Mount-WindowsImage -ImagePath $wimImagePath -Path $mountDir -Index $Index
-    } catch {
-        Write-Host "`nAn error occurred while mounting the WIM image:"
-        Write-Error $_.Exception.Message
-    }
-}
-
-function Dismount-WimImage { # Dismount WimImage & Save
-    # USAGE: Dismount-WimImage -mountDir $mountDir
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)][string]$mountDir
-    )
-    try {
-        Write-Host "`nDismounting and saving the mounted WIM image at $mountDir..."
-        Dismount-WindowsImage -Path $mountDir -Save
-    } catch {
-        Write-Host "`nAn error occurred while dismounting and saving the WIM image:"
-        Write-Error $_.Exception.Message
-    }
-}
-
-function Expand-WimImage { # Apply WimImage by Index to path
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)][string]$wimImagePath,
-        [Parameter(Mandatory=$true)][string]$ApplyPath,
-        [Parameter(Mandatory=$true)][int]$Index
-    )
-    try {
-        Write-Host "`nExpanding the WIM image at $wimImagePath to $ApplyPath using index $Index..."
-        Expand-WindowsImage -ImagePath $wimImagePath -ApplyPath $ApplyPath -Index $Index
-    } catch {
-        Write-Host "`nAn error occurred while expanding the WIM image:"
-        Write-Error $_.Exception.Message
-    }
-}
-
-function Save-WimImage { # Saves a WimImage. Saves incremental WimImage to an alternate path if provided.
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)][string]$mountDir,
-        [Parameter(Mandatory=$false)][string]$destinationImagePath
-    )
-    try {
-        if ($PSBoundParameters.ContainsKey('DestinationImagePath')) {
-            Write-Host "`nSaving the WIM image from $mountDir to $destinationImagePath..."
-            Save-WindowsImage -Path $mountDir -DestinationImagePath $destinationImagePath
-        } else {
-            Write-Host "`nSaving the WIM image from $mountDir..."
-            Save-WindowsImage -Path $mountDir
-        }
-    } catch {
-        Write-Host "`nAn error occurred while saving the WIM image:"
-        Write-Error $_.Exception.Message
-    }
-}
-
-function Add-WimDrivers { # Add multiple recursed drivers to a mounted WimImage
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)][string]$mountDir,
-        [Parameter(Mandatory=$true)][string]$driversPath
-    )
-    try {
-        Write-Host "`nAdding drivers from $driversPath to the mounted WIM file at $mountDir..."
-        Add-WindowsDriver -Path $mountDir -Driver $driversPath -Recurse
-    } catch {
-        Write-Host "`nAn error occurred while adding the drivers:"
-        Write-Error $_.Exception.Message
-    }
-}
-
-function Export-WimDriver { # Export drivers from a mounted WimImage
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)][string]$mountDir,
-        [Parameter(Mandatory=$true)][string]$destination
-    )
-    try {
-        Write-Host "`nExporting drivers from the mounted WIM file at $mountDir to $destination..."
-        Export-WindowsDriver -Path $mountDir -Destination $destination
-    } catch {
-        Write-Host "`nAn error occurred while exporting the drivers:"
-        Write-Error $_.Exception.Message
-    }
-}
-
-function Remove-WimDriver { # Remove driver by specifying the OEM*.inf file name from a mounted WimImage
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)][string]$mountDir,
-        [Parameter(Mandatory=$true)][string]$driverFileName
-    )
-    try {
-        Write-Host "`nRemoving driver $driverFileName from the mounted WIM file at $mountDir..."
-        Remove-WindowsDriver -Path $mountDir -Driver $driverFileName
-    } catch {
-        Write-Host "`nAn error occurred while removing the driver:"
-        Write-Error $_.Exception.Message
-    }
-}
-
-function Remove-WimDrivers { # Remove all OEM*.inf drivers from a mounted WimImage
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)][string]$mountDir
+        # Folder Path to mounted WimImage
+        [Parameter(Mandatory=$true)] [string]$mountDir
     )
     # Define the path where the INF files are located in the mounted image
     $infFolderPath = Join-Path -Path $mountDir -ChildPath "windows\inf"
@@ -447,28 +256,290 @@ function Remove-WimDrivers { # Remove all OEM*.inf drivers from a mounted WimIma
             return
         }
         foreach ($infFile in $oemInfFiles) {
-            Write-Host "`nRemoving driver $($infFile.Name) from the mounted WIM file at $mountDir..."
+            Write-Host "`nRemoving driver $($infFile.Name) from the mounted WimImage at $mountDir..."
             # Remove the driver using the specific INF file name
             Remove-WindowsDriver -Path $mountDir -Driver $infFile.FullName
         }
     } catch {
-        Write-Host "`nAn error occurred while removing the driver:"
+        Write-Host "`nAn error occurred while removing the drivers:"
         Write-Error $_.Exception.Message
     }
 }
 
-function Add-WimPackage { # Add Optional Components by *.cab or updates by *.msu to a mounted WimImage
+function Enable-WimOptFeature { # Function to enable features in a mounted WimImage by name
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)][string]$mountDir,
-        [Parameter(Mandatory=$true)][string]$PackagePath
+        # Folder Path to mounted WimImage
+        [Parameter(Mandatory=$true)] [string]$mountDir,
+        # Name of the feature to enable
+        [Parameter(Mandatory=$true)] [string]$featureName,
+        # Optional path Source of the feature (aka NetFX3)
+        [Parameter(Mandatory=$false)] [string]$sourcePath
     )
-    # Add-WimPackage -mountDir $mountDir -PackagePath $PackagePath
     try {
-        Write-Host "`nAdding package $PackagePath to the mounted WIM file at $mountDir..."
-        Add-WindowsPackage -Path $mountDir -PackagePath $PackagePath
+        if ($sourcePath) {
+            Write-Host "`nEnabling feature $featureName in the mounted WimImage at $mountDir with source path $sourcePath..."
+            Enable-WindowsOptionalFeature -Path $mountDir -FeatureName $featureName -All -Source $sourcePath
+        } else {
+            Write-Host "`nEnabling feature $featureName in the mounted WimImage at $mountDir..."
+            Enable-WindowsOptionalFeature -Path $mountDir -FeatureName $featureName -All
+        }
     } catch {
-        Write-Host "`nAn error occurred while adding the package:"
+        Write-Host "`nAn error occurred while enabling the feature:"
+        Write-Error $_.Exception.Message
+    }
+}
+
+function Get-WimImage { # Function to list details of a WimImage using DISM.exe (for logging)
+    [CmdletBinding()]
+    param(
+        # Full Path and File Name ($_.FullName) of WimImage to get info
+        [Parameter(Mandatory=$true)] [string]$wimImagePath
+    )
+    try {
+        Write-Host "`nRetrieving WimImage details for: $wimImagePath"
+        $output = & dism.exe "/Get-ImageInfo /ImageFile:$wimImagePath /Format:Table"
+        Write-Host $output
+    } catch {
+        Write-Host "`nFailed to retrieve WimImage details for $wimImagePath"
+        Write-Error $_.Exception.Message
+    }
+}
+
+function Get-WimDrivers { # Function to list drivers using DISM.exe from a mounted image (for logging)
+    [CmdletBinding()]
+    param(
+        # Folder Path to mounted WimImage
+        [Parameter(Mandatory=$true)] [string]$mountDir
+    )
+    try {
+        Write-Host "`nRetrieving drivers from mounted WimImage at $mountDir..."
+        $output = & dism.exe "/Get-Drivers /Image:$mountDir /Format:Table"
+        Write-Host $output
+    } catch {
+        Write-Host "`nAn error occurred while retrieving drivers from $mountDir."
+        Write-Error $_.Exception.Message
+    }
+}
+
+function Get-WimPackages { # Function to list packages using DISM.exe from a mounted image (for logging)
+    [CmdletBinding()]
+    param (
+        # Folder Path to mounted WimImage
+        [Parameter(Mandatory = $true)] [string]$mountDir
+    )
+    try {
+        Write-Host "`nRetrieving packages from mounted WimImage at $mountDir..."
+        $output = & dism.exe "/Get-Packages /Image:$mountDir /Format:Table"
+        Write-Host $output
+    } catch {
+        Write-Host "`nAn error occurred while retrieving packages from $mountDir."
+        Write-Error $_.Exception.Message
+    }
+}
+
+function Get-WimOptFeature { # Function to list optional features using DISM.exe from a mounted image (for logging)
+    [CmdletBinding()]
+    param(
+        # Folder Path to mounted WimImage
+        [Parameter(Mandatory=$true)] [string]$mountDir   # Path to the mounted image directory
+    )
+    try {
+        Write-Host "`nRetrieving optional features from mounted WimImage at $mountDir..."
+        $output = & dism.exe "/Image:$mountDir /Get-Features /Format:Table"
+        Write-Host $output
+    } catch {
+        Write-Host "`nAn error occurred while retrieving optional features from $mountDir."
+        Write-Error $_.Exception.Message
+    }
+}
+
+function New-WimImageCmBoot { # Function to add CM Boot Image
+    # WARNING: Requires running from CM Site Server PSDrive location & UNC path access to Site Content
+    # USAGE: New-WimImageCmBoot -CmBootWimRoot $cmBootWimRoot -newCmBootFolder $newCmBootFolder -newCmBootName $newCmBootName -sourceBootWim $sourceBootWim 
+    [CmdletBinding()]
+    param(
+        # Path to CM Boot Image content location
+        [Parameter(Mandatory=$true)] [string]$cmBootWimRoot,
+        # New CM Boot Image Folder Name (defaults to OS-Build "major.minor")
+        [Parameter(Mandatory=$false)] [string]$newCmBootFolder,
+        # New CM Boot Image name (defaults to OS-Build "major.minor.wim")
+        [Parameter(Mandatory=$false)] [string]$newCmBootName,
+        # Source WIM to copy (defaults to ADK WinPE.wim)
+        [Parameter(Mandatory=$false)] [string]$sourceBootWim
+    )
+    # Get the CM Boot Image object to be removed
+    try {
+    } catch {
+        Write-Host "`nAn error occurred ."
+        Write-Error $_.Exception.Message
+    }
+    Push-Location -Path $env:SystemDrive
+    try {
+    } catch {
+        Write-Host "`nAn error occurred ."
+        Write-Error $_.Exception.Message
+    }
+    Pop-Location
+}
+
+function Get-WimImageCmBoot { # Function to get information and settings from an active CM Boot Image
+    # WARNING: Requires running from CM Site Server PSDrive location & UNC path access to Site Content
+    # USAGE: Get-WimImageCmBoot -cmBootWimInfo $cmBootWimInfo -infoOutput $infoOutput
+    [CmdletBinding()]
+    param(
+        # Name of the CM Boot Wim to gather information from
+        [Parameter(Mandatory=$true)] [string]$cmBootWimInfo,
+        # Folder location to store info collected (Defaults to "$env:USERPROFILE\Documemts\INFO-<BootWimName>.txt")
+        [Parameter(Mandatory=$false)] [string]$infoOutput = "$env:USERPROFILE\Documents\cmBootWimInfo.txt"
+    )
+    try {
+        $infCmBootWim = Get-CmBootWim -Name $cmBootWimInfo
+        $data = "Getting CM boot image information from $cmBootWimInfo..." + `
+        "`nPriority:                          $($infCmBootWim.Priority)" + `
+        "`nDescription:                       $($infCmBootWim.Description)"
+        "`nDeployFromPxeDistributionPoint:    $($infCmBootWim.DeployFromPxeDistributionPoint)" + `
+        "`nEnableLabShell (aka 'F8'):         $($infCmBootWim.EnableLabShell)" + `
+        "`nScratchSpace (mostly moot):        $($infCmBootWim.ScratchSpace)" + `
+        "`nOptionalComponents:                $($infCmBootWim.OptionalComponents)" + `
+        "`nReferencedDrivers:                 $($infCmBootWim.ReferencedDrivers)" + `
+        ""
+        Push-Location -Path $env:SystemDrive
+        Write-Host $data
+        if ($null -eq $infoOutput) {
+            Out-File -FilePath "$env:USERPROFILE\Documemts\INFO-$cmBootWimInfo.txt -InputObject $data"
+        } else {Out-File -FilePath "$infoOutput\INFO-$cmBootWimInfo.txt" -InputObject $data}
+        Pop-Location
+    } catch {
+        Write-Host "`nAn error occurred while getting CM boot image information from $cmBootWimInfo."
+        Write-Error $_.Exception.Message
+        Pop-Location
+    }
+}
+
+function Remove-WimImageCmBoot { # Function to remove a CM Boot Image by name and its associated files
+    # WARNING: Requires running from CM Site Server PSDrive location & UNC path access to Site Content
+    # USAGE: Remove-WimImageCmBoot -remCmBootWim $remCmBootWimByName
+    [CmdletBinding()]
+    param(
+        # Name of the CM Boot Image to remove (required)
+        [Parameter(Mandatory=$true)] [string]$remCmBootWim
+    )
+    # Get the CM Boot Image object to be removed
+    $removeCmBootWim = Get-CmBootWim -Name $remCmBootWim
+    try {
+        Write-Host "`nRemoving CM boot image $remCmBootWim..."
+        Remove-CmBootWim -Name $removeCmBootWim -Force
+    } catch {
+        Write-Host "`nAn error occurred while removing CM boot image $remCmBootWim."
+        Write-Error $_.Exception.Message
+    }
+    # Remove the associated files and folders
+    Push-Location -Path $env:SystemDrive
+    try {
+        $removeCmBootWimPath = (Get-Item -Path $removeCmBootWim.ImagePath).Parent
+        if ($removeCmBootWim.ImagePath) {Remove-Item -Path $removeCmBootWim.ImagePath}
+        if ($removeCmBootWim.PkgSourcePath) {Remove-Item -Path $removeCmBootWim.PkgSourcePath}
+        if (-not (Get-ChildItem -Path $removeCmBootWimPath.FullName)) {
+            Remove-Item -Path $removeCmBootWimPath.FullName -Force}
+    } catch {
+        Write-Host "`nAn error occurred while removing CM boot files $remCmBootWim."
+        Write-Error $_.Exception.Message
+    }
+Pop-Location
+}
+
+############# Convenient Redundant Functions #############
+
+function Expand-WimImage { # Apply WimImage by Index to path
+    [CmdletBinding()]
+    param(
+        # Full Path and File Name ($_.FullName) of WimImage to be applied
+        [Parameter(Mandatory=$true)] [string]$wimImagePath,
+        # Index of WimImage to apply
+        [Parameter(Mandatory=$true)] [int]$wimIndex,
+        # Path to apply WimImage
+        [Parameter(Mandatory=$true)] [string]$ApplyPath
+    )
+    try {
+        Write-Host "`nExpanding the WimImage at $wimImagePath to $ApplyPath using index: $wimIndex..."
+        Expand-WindowsImage -ImagePath $wimImagePath -ApplyPath $ApplyPath -Index $wimIndex
+    } catch {
+        Write-Host "`nAn error occurred while expanding the WimImage:"
+        Write-Error $_.Exception.Message
+    }
+}
+
+function Save-WimImage { # Saves a WimImage. Saves incremental WimImage to an alternate path if provided.
+    [CmdletBinding()]
+    param(
+        # Folder Path to mounted WimImage being saved
+        [Parameter(Mandatory=$true)] [string]$mountDir,
+        # Full Folder Path and File Name to save incrimental WimImage
+        [Parameter(Mandatory=$false)] [string]$drvDestinationImagePath
+    )
+    try {
+        if ($PSBoundParameters.ContainsKey('DestinationImagePath')) {
+            Write-Host "`nSaving the WimImage from $mountDir to $drvDestinationImagePath..."
+            Save-WindowsImage -Path $mountDir -DestinationImagePath $drvDestinationImagePath
+        } else {
+            Write-Host "`nSaving the WimImage from $mountDir..."
+            Save-WindowsImage -Path $mountDir
+        }
+    } catch {
+        Write-Host "`nAn error occurred while saving the WimImage:"
+        Write-Error $_.Exception.Message
+    }
+}
+
+function Add-WimDrivers { # Add multiple recursed drivers to a mounted WimImage
+    [CmdletBinding()]
+    param(
+        # Folder Path to mounted WimImage
+        [Parameter(Mandatory=$true)] [string]$mountDir,
+        # Folder Path to drivers being applied recursively
+        [Parameter(Mandatory=$true)] [string]$driversPath
+    )
+    try {
+        Write-Host "`nAdding drivers from $driversPath to the mounted WimImage at $mountDir..."
+        Add-WindowsDriver -Path $mountDir -Driver $driversPath -Recurse
+    } catch {
+        Write-Host "`nAn error occurred while adding the drivers:"
+        Write-Error $_.Exception.Message
+    }
+}
+
+function Export-WimDriver { # Export drivers from a mounted WimImage
+    [CmdletBinding()]
+    param(
+        # Folder Path to mounted WimImage
+        [Parameter(Mandatory=$true)] [string]$mountDir,
+        # Folder Path to export drivers from mounted WimImage
+        [Parameter(Mandatory=$true)] [string]$drvDestination
+    )
+    try {
+        if (-not (Test-Path -Path $drvDestination -PathType Any)) {New-Item -Path $drvDestination -ItemType Directory}
+        Write-Host "`nExporting drivers from the mounted WimImage at $mountDir to $drvDestination..."
+        Export-WindowsDriver -Path $mountDir -Destination $drvDestination
+    } catch {
+        Write-Host "`nAn error occurred while exporting the drivers:"
+        Write-Error $_.Exception.Message
+    }
+}
+
+function Remove-WimDriver { # Remove driver by specifying the OEM*.inf file name from a mounted WimImage
+    [CmdletBinding()]
+    param(
+        # Folder Path to mounted WimImage
+        [Parameter(Mandatory=$true)] [string]$mountDir,
+        # Filename of driver to remove (aka "oem2.inf")
+        [Parameter(Mandatory=$true)] [string]$driverFileName
+    )
+    try {
+        Write-Host "`nRemoving driver $driverFileName from the mounted WimImage at $mountDir..."
+        Remove-WindowsDriver -Path $mountDir -Driver $mountDir\Windows\INF\$driverFileName
+    } catch {
+        Write-Host "`nAn error occurred while removing the driver:"
         Write-Error $_.Exception.Message
     }
 }
@@ -476,12 +547,13 @@ function Add-WimPackage { # Add Optional Components by *.cab or updates by *.msu
 function Remove-WimPackage { # Remove Optional Components by *.cab or updates by *.msu from a mounted WimImage by name
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)][string]$mountDir,
-        [Parameter(Mandatory=$true)][string]$PackageName
+        # Folder Path to mounted WimImage
+        [Parameter(Mandatory=$true)] [string]$mountDir,
+        [Parameter(Mandatory=$true)] [string]$packageName
     )
     try {
-        Write-Host "`nRemoving package $PackageName from the mounted WIM file at $mountDir..."
-        Remove-WindowsPackage -Path $mountDir -WimPackageName $PackageName
+        Write-Host "`nRemoving package $packageName from the mounted WimImage at $mountDir..."
+        Remove-WindowsPackage -Path $mountDir -WimPackageName $packageName
     } catch {
         Write-Host "`nAn error occurred while removing the package:"
         Write-Error $_.Exception.Message
@@ -491,12 +563,13 @@ function Remove-WimPackage { # Remove Optional Components by *.cab or updates by
 function Disable-WimOptFeature { # Disable Features in mounted WimImage by name
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)][string]$mountDir,
-        [Parameter(Mandatory=$true)][string]$FeatureName
+        # Folder Path to mounted WimImage
+        [Parameter(Mandatory=$true)] [string]$mountDir,
+        [Parameter(Mandatory=$true)] [string]$featureName
     )
     try {
-        Write-Host "`nDisabling feature '$FeatureName' in mounted WIM image at '$mountDir'..."
-        Disable-WindowsOptionalFeature -Path $mountDir -FeatureName $FeatureName
+        Write-Host "`nDisabling feature '$featureName' in mounted WimImage at '$mountDir'..."
+        Disable-WindowsOptionalFeature -Path $mountDir -FeatureName $featureName
     } catch {
         Write-Host "`nAn error occurred while disabling the feature:"
         Write-Error $_.Exception.Message
@@ -504,104 +577,102 @@ function Disable-WimOptFeature { # Disable Features in mounted WimImage by name
 }
 ############################## COMPLETION ##############################
 Write-Host "`nSuccessful dot-sourcing of ..."
-Write-Host "    Script Version = $scriptName"
+Write-Host "    Script Name = $scriptName"
 Write-Host "    Script Version = $scriptVer"
 
-<# NOTES
-.VARIABLE EXAMPLES
-# Variables for copying to scripts
-$wimImagePath = "C:\Path\to\image.wim"     # Path to the WIM image
-$sourceWim = "C:\Path\to\image.wim"  # Source path of the WIM image for export
-$sourceWimIndex = 1                           # Index of the WIM image to export
-$mountDir = "C:\Mount"                     # Directory where the image is mounted
-$driverPath = "C:\Path\to\driver.inf"      # Path to the driver to be added
-$wimImageOc = "C:\Path\to\osd_packages"    # Path to the OSD packages
-$wimImageLang = "en-US"                    # Language of the OSD packages
-#>
+<########################## VARIABLE EXAMPLES ##########################
+$wimImagePath = "C:\path\to\image.wim"
+$mountDir = "C:\mount"
+$packagePath = "C:\path\to\package.msu"
+$wimIndex = 1
+$exportWimImage = "C:\path\to\exported.wim"
+$exportWimIndex = 1
+$driverPath = "C:\path\to\driver.inf"
+$featureName = "NetFx3"
+$sourcePath = "C:\path\to\feature\source"
+$cmBootWimRoot = "C:\path\to\cmboot"
+$newCmBootFolder = "NewCmBoot"
+$newCmBootName = "NewCmBoot"
+$sourceBootWim = "SourceBoot.wim"
+$cmBootWimInfo = "NewCmBoot.wim"
+$infoOutput = "C:\info"
+#######################################################################>
+<##########################  USAGE EXAMPLES  ###########################
 
-<#
-# Variables used in functions
-$moduleAvailable = $null   # Boolean variable to check if DISM module is available and loaded
+Mount-WimImage -wimImagePath $wimImagePath -mountDir $mountDir -wimIndex $wimIndex
+# -wimImagePath    :Full Path and File Name of the WimImage to be mounted.
+# -mountDir        :Folder where the WimImage will be mounted for servicing.
+# -Index           :Index of the WimImage to be mounted.
+###################################################################################
 
-# Get-WimImage variables
-$wimImagePath = "C:\Path\to\image.wim"     # Path to the WIM image
+Add-WimPackage -mountDir $mountDir -packagePath $packagePath
+# -mountDir        :Folder Path to the mounted WimImage.
+# -PackagePath     :Full Path and File Name of the .msu or .cab package to be added.
+###################################################################################
 
-# Export-WimImage variables
-$sourceWim = "C:\Path\to\image.wim"  # Source path of the WIM image for export
-$sourceWimIndex = 1                           # Index of the WIM image to export
+Dismount-WimImage -mountDir $mountDir
+# -mountDir        :Folder Path to the mounted WimImage.
+###################################################################################
 
-# Split-WimImage variables
-$wimImageDirectory = $null                 # Directory of the WIM image
-$wimImageBaseName = $null                  # Base name of the WIM image
-$destinationImagePath = $null              # Path of the destination split WIM image
+Invoke-WimImageCleanup -mountDir $mountDir
+# Invoke-WimImageCleanup
+# -mountDir        :Path to the mounted WIM directory.
+###################################################################################
 
-# Add-WimDriver variables
-$mountDir = $null                          # Directory where the image is mounted
-$driverPath = $null                        # Path to the driver to be added
+Export-WimImage -exportWimImage $exportWimImage -exportWimIndex $exportWimIndex
+# -exportWimImage  :Path to the exported WimImage.
+# -exportWimIndex  :Index of the WimImage to export.
+###################################################################################
 
-# Get-WimDriver variables
-$mountDir = $null                          # Directory where the image is mounted
+Split-WimImage -wimImagePath $wimImagePath
+# Split-WimImage
+# -wimImagePath    :Path to the source WimImage to split.
+###################################################################################
 
-# Get-WimPackage variables
-$mountDir = $null                          # Directory where the image is mounted
+Add-WimDriver -mountDir $mountDir -driverPath $driverPath
+# -mountDir        :Folder Path to mounted WimImage.
+# -driverPath      :Full Path and File Name of the driver to be added.
+###################################################################################
 
-# Get-WimOptFeature variables
-$mountDir = $null                          # Directory where the image is mounted
+Remove-WimDriversAll -mountDir $mountDir
+# -mountDir        :Folder Path to mounted WimImage.
+###################################################################################
 
-# Invoke-WimImageCleanup variables
-$mountDir = $null                          # Directory where the image is mounted
+Enable-WimOptFeature -mountDir $mountDir -featureName $featureName -sourcePath $sourcePath
+# -mountDir        :Folder Path to mounted WimImage.
+# -featureName     :Name of the feature to enable.
+# -sourcePath      :Path to feature Source file(s) - Optional.
+###################################################################################
 
-# Add-WimImageOsdOptComps variables
-$mountDir = $null                          # Directory where the image is mounted
-$wimImageOc = $null                        # Path to the OSD packages
-$wimImageLang = $null                      # Language of the OSD packages
-$OsdOptionalComponents = $null             # Array of optional components
+Get-WimImage -wimImagePath $wimImagePath
+# -wimImagePath    :Full Path and File Name of WimImage to get info.
+###################################################################################
 
-# Try-Catch variables
-$tempImageName = $null                     # Temporary name for the image during export operation
-$componentCab = $null                      # Name of the component CAB file
-$languageCab = $null                       # Name of the language pack CAB file
-$packagePath = $null                       # Path to the component CAB file
-$languagePackPath = $null                  # Path to the language pack CAB file
-$SWMFiles = $null                          # Array of SWM files created during split operation
-#>
+Get-WimDrivers -mountDir $mountDir
+# -mountDir        :Folder Path to mounted WimImage.
+###################################################################################
 
-<# 
-function Get-WimImageCmBoot { # Function to get information and settings from an active CM Boot Image
-# WARNING: Requires running from CM Site Server PSDrive location & UNC path access to Site Content
-# USAGE: Get-WimImageCmBoot -infoCmBootImage $infoCmBootImage -infoOutput $infoOutput
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory=$true)][string]$infoCmBootImage,   # Name of the CM Boot Image
-        [Parameter(Mandatory=$false)][string]$infoOutput        # Local storage or UNC path for output
-    )
-    try {
-        Write-Host "`nGetting CM boot image information from $infoCmBootImage..."
-        $infCmBootImage = Get-CMBootImage -Name $infoCmBootImage
-        Write-Host "`nReferencedDrivers by list..."
-        $infCmBootImage.ReferencedDrivers # drivers
-        Write-Host "`nDeployFromPxeDistributionPoint [true/false]..."
-        $infCmBootImage.DeployFromPxeDistributionPoint # pxe t/f
-        Write-Host "`nEnableLabShell (aka 'F8') [true/false]..."
-        $infCmBootImage.EnableLabShell # f8 t/f 
-        Write-Host "`nPriority by list [high/med/low]..."
-        $infCmBootImage.Priority # high/med/low
-        Write-Host "`nScratchSpace [32-2048]..."
-        $infCmBootImage.ScratchSpace # 512 (kinda moot these days, but Dell was using 2048)
-        Write-Host "`nOptionalComponents [array]..."
-        $infCmBootImage.OptionalComponents # array
-        Write-Host "`nDescription [array]..."
-        $infCmBootImage.Description # plain text
-        Push-Location -Path $env:SystemDrive
-        if ($null -eq $infoOutput) {
-            Out-File -FilePath "$env:USERPROFILE\Documents\infoCmBootImage.txt" -InputObject $infCmBootImage
-        } else {
-            Out-File -FilePath "$infoOutput\INFO-$infoCmBootImage.txt" -InputObject $infCmBootImage
-        }
-        Pop-Location
-    } catch {
-        Write-Host "`nAn error occurred while getting CM boot image information from $infoCmBootImage."
-        Write-Error $_.Exception.Message
-        Pop-Location
-    }
-}#>
+Get-WimPackages -mountDir $mountDir
+# -mountDir        :Folder Path to mounted WimImage.
+###################################################################################
+
+Get-WimOptFeature -mountDir $mountDir
+# Get-WimOptFeature
+# -mountDir        :Folder Path to mounted WimImage.
+###################################################################################
+
+New-WimImageCmBoot -CmBootWimRoot $cmBootWimRoot -newCmBootFolder $newCmBootFolder -newCmBootName $newCmBootName -sourceBootWim $sourceBootWim
+# -CmBootWimRoot   :Path to CM Boot Image content location.
+# -newCmBootFolder :New CM Boot Image Folder Name.
+# -newCmBootName   :New CM Boot Image name.
+# -sourceBootWim   :Source WIM to copy.
+###################################################################################
+
+Get-WimImageCmBoot -cmBootWimInfo $cmBootWimInfo -infoOutput $infoOutput
+# -cmBootWimInfo   :Name of the CM Boot Wim to gather information from.
+# -infoOutput      :Folder location to store gathered information.
+###################################################################################
+
+Remove-WimImageCmBoot -remCmBootWim $remCmBootWim
+# -remCmBootWim    :Name of the CM Boot Image to remove.
+##################################################################################>
