@@ -1,5 +1,5 @@
 ﻿# Edit array of optional components to be added to the WimImage when using Add-WimImageOsdPackages function
-$OsdOptComp = @(
+$OsdOptComp = @( # These are the most common blend of "traditional" and "modern" OC's for CM/Intune
     "WinPE-HTA",
     "WinPE-MDAC",
     "WinPE-Scripting",
