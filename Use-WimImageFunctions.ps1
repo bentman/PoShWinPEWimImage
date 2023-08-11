@@ -248,12 +248,12 @@ function Get-WimImageCmBoot { # Function to get information and settings from an
         $infCmBootImage = Get-CMBootImage -Name $infoCmBootImage
         $data = "Getting CM boot image information from $infoCmBootImage..." + `
         "`nDescription:                       $($infCmBootImage.Description)"
-        "ReferencedDrivers:                 $($infCmBootImage.ReferencedDrivers)" + `
-        "DeployFromPxeDistributionPoint:    $($infCmBootImage.DeployFromPxeDistributionPoint)" + `
-        "EnableLabShell (aka 'F8'):         $($infCmBootImage.EnableLabShell)" + `
-        "Priority:                          $($infCmBootImage.Priority)" + `
-        "ScratchSpace:                      $($infCmBootImage.ScratchSpace)" + `
-        "OptionalComponents:                $($infCmBootImage.OptionalComponents)" + `
+        "`nReferencedDrivers:                 $($infCmBootImage.ReferencedDrivers)" + `
+        "`nDeployFromPxeDistributionPoint:    $($infCmBootImage.DeployFromPxeDistributionPoint)" + `
+        "`nEnableLabShell (aka 'F8'):         $($infCmBootImage.EnableLabShell)" + `
+        "`nPriority:                          $($infCmBootImage.Priority)" + `
+        "`nScratchSpace:                      $($infCmBootImage.ScratchSpace)" + `
+        "`nOptionalComponents:                $($infCmBootImage.OptionalComponents)" + `
         ""
         Push-Location -Path $env:SystemDrive
         Write-Host $data
