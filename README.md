@@ -7,7 +7,7 @@ This PowerShell script, **Use-WimImageFunctions.ps1**, is designed to provide a 
 - Configure the optional components to be added to the WIM image.
 
     ```powershell
-    $OsdOptComp = @(
+    $OsdOptComps = @(
         "WinPE-HTA",
         "WinPE-MDAC",
         ...
@@ -15,27 +15,30 @@ This PowerShell script, **Use-WimImageFunctions.ps1**, is designed to provide a 
     )
     ```
 
-- Set the location of the Assessment and Deployment Kit (ADK). Default is shown below:
+- Set the architecture &location of the Assessment and Deployment Kit (ADK). Defaults shown below:
 
     ```powershell
-    $wimImageOc = "C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs"
+    $adkArch = "amd64"
+    $adkRoot = "C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment"
     ```
 
 ### Sample of Functions
 
+- `Add-WimDriver`: Adds a single driver to a mounted WIM file.
+- `Add-WimDrivers`: Adds multiple drivers to a mounted WIM file.
+- `Add-WimImageOsdOptComps`: Adds ADK OptionalComponents to a mounted WIM image.
+- `Add-WimImageUpdate`: Add Updates by *.msu or Packages by *.cab to a mounted WimImage
 - `Invoke-WimImageCleanup`: Performs cleanup operations on a mounted WIM file.
 - `Export-WimImage`: Exports a specific index of a WIM file.
-- `Add-WimImageOsdPackages`: Adds OSD packages to a mounted WIM image.
-- `Split-WimImage`: Splits a WIM image into smaller files.
-- `Add-WimDriver`: Adds a single driver to a mounted WIM file.
-- `Enable-WimOptFeature`: Enables features in a mounted WimImage by name.
-- `Get-WimImage`: Lists details of a WIM Image using DISM.exe.
-- `Get-WimDrivers`: Lists drivers from a mounted image (logging).
-- `Get-WimPackages`: Lists packages from a mounted image (logging).
-- `Get-WimOptFeature`: Lists optional features from a mounted image (logging).
+- `Enable-WimOptFeature`: Enables Optional Features to a mounted WimImage by name.
+- `Get-WimImage`: Lists details of a WIM Image using DISM.exe (logging).
+- `Get-WimDrivers`: Lists drivers from a mounted image using DISM.exe (logging).
+- `Get-WimPackages`: Lists packages from a mounted image using DISM.exe (logging).
+- `Get-WimOptFeature`: Lists optional features from a mounted image using DISM.exe (logging).
 
-### Sample of Advanced Functions
-- `Get-WimImageCmBoot`: Gets information and settings from an active CM Boot Image.
+### Sample of Advanced Functions (requires `ConfigurationManager.psd1` loaded from Site PSDrive)
+- `Get-CmBootWimImage`: Get information and settings from an active CM Boot Image.
+- `Remove-CmBootWimImage`: Remove a CM Boot Image by name and its associated files.
 
 ### Usage Guidelines
 
@@ -59,7 +62,7 @@ For instance:
     ```
 - To add OSD packages:
     ```powershell
-    Add-WimImageOsdPackages -mountDir "path_to_mounted_WIM" -OsdOptComp $OsdOptComp -wimImageLang 'en-us'
+    Add-WimImageOsdOptComps -mountDir "path_to_mounted_WIM" -OsdOptComp $OsdOptComp -wimImageLang 'en-us'
     ```
 
 ### Requirements

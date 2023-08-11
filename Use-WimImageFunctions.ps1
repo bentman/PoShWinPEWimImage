@@ -1,5 +1,38 @@
-﻿# Edit array of optional components to be added to the WimImage when using Add-WimImageOsdPackages function
-$OsdOptComp = @( # These are the most common blend of "traditional" and "modern" OC's for CM/Intune
+﻿############################## DECLARATION #############################
+$scriptName = (Get-PSCallStack).InvocationInfo.MyCommand.Name
+$scriptVer = "2.0"
+Write-Host "`nDot-Sourcing $scriptName v$scriptVer..."
+
+############################## VERIFICATION ############################
+# Check if DISM module is available and loaded
+$moduleAvailable = Get-Module -Name DISM -ListAvailable
+if (-not $moduleAvailable) {
+    try { # If module not available, import it
+        Write-Host "`nImporting DISM module..."
+        Import-Module -Name DISM 
+    } catch {
+        Write-Host "`nFailed to import DISM module:"
+        Write-Error $_.Exception.Message
+        break
+    }
+} else {
+    Write-Host "`nDISM module confirmed available and loaded."
+}
+
+# ADK Architecture version (x86 removed from ADK, arm64 is not utilized)
+$adkArch = "amd64" 
+# Edit location of Assessment and Deployment Kit (if different than default)
+$adkRoot = "C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment"
+# ADK Architecture subfolder path for Optional Components
+$adkOptComp = "$adkArch\WinPE_OCs"
+# ADK Optional Components Path
+$OsdOptComps = Join-Path -Path $adkRoot -ChildPath $adkOptComp
+# Ensure the ADK Optional Components are available
+if (-not (Test-Path -Path $OsdOptComps)) {Write-Host "`nADK not found in default location."; break}
+else {Write-Host "`nADK Optional Components are available at default location."}
+
+# Edit array of optional components to be added to the WimImage when using Add-WimImageOsdOptComps function
+$OsdOptComps = @( # These are the most common blend of "traditional" and "modern" OC's for CM/Intune
     "WinPE-HTA",
     "WinPE-MDAC",
     "WinPE-Scripting",
@@ -13,24 +46,11 @@ $OsdOptComp = @( # These are the most common blend of "traditional" and "modern"
     "WinPE-WinReCfg",
     "WinPE-PlatformId"
 )
-# Edit location of Assessment and Deployment Kit (if different than default)
-$wimImageOc = "C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment\amd64\WinPE_OCs"
+Write-Host "`nADK Optional Components to be added from this session..."
+foreach ($OsdOptComp in $OsdOptComps) {Write-Host "    $OsdOptComp"}
+Write-Host "" # Empty line for logging readability
 
-# Check if DISM module is available and loaded
-$moduleAvailable = Get-Module -Name DISM -ListAvailable
-if (-not $moduleAvailable) {
-    try { # If module not available, import it
-        Write-Host "`nImporting DISM module..."
-        Import-Module DISM -ErrorAction Stop
-    } catch {
-        Write-Host "`nFailed to import DISM module:"
-        Write-Error $_.Exception.Message
-        return
-    }
-} else {
-    Write-Host "`nDISM module found."
-}
-
+############################## FUNCTIONS ###############################
 function Invoke-WimImageCleanup { # Function to perform cleanup operations on a mounted Windows Imaging (WIM) file
     # USAGE: Invoke-WimImageCleanup -mountDir $mountDir 
     [CmdletBinding()]
@@ -50,42 +70,42 @@ function Export-WimImage { # Function to export a specific index of a Windows Im
     # USAGE: Export-WimImage -sourceImagePath $wimImagePath -sourceIndex 1
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)][string]$sourceImagePath,  # Path to the source WIM file
-        [Parameter(Mandatory=$true)][int]$sourceIndex          # Index of the image to export
+        [Parameter(Mandatory=$true)][string]$sourceWim,  # Path to the source WIM file
+        [Parameter(Mandatory=$true)][int]$sourceWimIndex          # Index of the image to export
     )
     # Rename the source WIM file to a temporary name
-    $tempImageName = [IO.Path]::ChangeExtension($sourceImagePath, "tmp")
+    $tempImageName = [IO.Path]::ChangeExtension($sourceWim, "tmp")
     try {
         Write-Host "`nRenaming the source WIM file to a temporary file..."
-        Move-Item -Path $sourceImagePath -Destination $tempImageName
+        Move-Item -Path $sourceWim -Destination $tempImageName
         # Export the WIM image with the specified index
         Write-Host "`nExecuting the WIM file export operation..."
-        Export-WindowsImage -SourceImagePath $tempImageName -SourceIndex $sourceIndex -DestinationImagePath $sourceImagePath
+        Export-WindowsImage -SourceImagePath $tempImageName -SourceIndex $sourceWimIndex -DestinationImagePath $sourceWim
         # Check if export was successful and delete the temporary file
-        if (Test-Path -Path $sourceImagePath) {
+        if (Test-Path -Path $sourceWim) {
             Write-Host "`nExport successful, deleting the temporary file..."
             Remove-Item -Path $tempImageName
         } else {
             throw "`nExport operation failed. Exported WIM file does not exist. Reverting to original WIM file name."
         }
     } catch {
-        Write-Host "`nAn error occurred while exporting the image index: $sourceIndex "
+        Write-Host "`nAn error occurred while exporting the image index: $sourceWimIndex "
         Write-Error $_.Exception.Message
         Write-Host "`nReverting to the original WIM file name..."
-        Move-Item -Path $tempImageName -Destination $sourceImagePath
+        Move-Item -Path $tempImageName -Destination $sourceWim
     }
 }
 
-function Add-WimImageOsdPackages { # Function to add OSD packages to a mounted WIM image. 
-    # USAGE: Add-WimImageOsdPackages -mountDir $mountDir -OsdOptComp $OsdOptComp -wimImageLang 'en-us'
+function Add-WimImageOsdOptComps { # Function to add OSD packages to a mounted WIM image. 
+    # USAGE: Add-WimImageOsdOptComps -mountDir $mountDir -OsdOptComp $OsdOptComps -wimImageLang 'en-us'
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)][string]$mountDir,
         [Parameter(Mandatory=$true)][string]$wimImageLang,
-        [Parameter(Mandatory=$false)][string[]]$OsdOptComp
+        [Parameter(Mandatory=$false)][string[]]$OsdOptComps
     )
     if (-not $wimImageOc) { Write-Host "ADK WinPE_OCs not found in default location"; break }
-    try { foreach ($component in $OsdOptComp) {
+    try { foreach ($component in $OsdOptComps) {
             $componentCab = "$component.cab"
             $packagePath = Join-Path -Path $wimImageOc -ChildPath $componentCab
             if (Test-Path -Path $packagePath) {
@@ -183,7 +203,7 @@ function Get-WimImage { # Function to list details of a WIM Image using DISM.exe
     )
     try {
         Write-Host "`nRetrieving WIM image details for: $wimImagePath"
-        $output = & dism.exe /Get-ImageInfo /ImageFile:$wimImagePath /Format:Table
+        $output = & dism.exe "/Get-ImageInfo /ImageFile:$wimImagePath /Format:Table"
         Write-Host $output
     } catch {
         Write-Host "`nFailed to retrieve WIM image details for $wimImagePath"
@@ -198,7 +218,7 @@ function Get-WimDrivers { # Function to list drivers using DISM.exe from a mount
     )
     try {
         Write-Host "`nRetrieving drivers from mounted WIM file at $mountDir..."
-        $output = & dism.exe /Get-Drivers /Image:$mountDir /Format:Table
+        $output = & dism.exe "/Get-Drivers /Image:$mountDir /Format:Table"
         Write-Host $output
     } catch {
         Write-Host "`nAn error occurred while retrieving drivers from $mountDir."
@@ -213,7 +233,7 @@ function Get-WimPackages { # Function to list packages using DISM.exe from a mou
     )
     try {
         Write-Host "`nRetrieving packages from mounted WIM file at $mountDir..."
-        $output = & dism.exe /Get-Packages /Image:$mountDir /Format:Table
+        $output = & dism.exe "/Get-Packages /Image:$mountDir /Format:Table"
         Write-Host $output
     } catch {
         Write-Host "`nAn error occurred while retrieving packages from $mountDir."
@@ -228,7 +248,7 @@ function Get-WimOptFeature { # Function to list optional features using DISM.exe
     )
     try {
         Write-Host "`nRetrieving optional features from mounted WIM file at $mountDir..."
-        $output = & dism.exe /Image:$mountDir /Get-Features /Format:Table
+        $output = & dism.exe "/Image:$mountDir /Get-Features /Format:Table"
         Write-Host $output
     } catch {
         Write-Host "`nAn error occurred while retrieving optional features from $mountDir."
@@ -482,13 +502,17 @@ function Disable-WimOptFeature { # Disable Features in mounted WimImage by name
         Write-Error $_.Exception.Message
     }
 }
+############################## COMPLETION ##############################
+Write-Host "`nSuccessful dot-sourcing of ..."
+Write-Host "    Script Version = $scriptName"
+Write-Host "    Script Version = $scriptVer"
 
-<#
+<# NOTES
 .VARIABLE EXAMPLES
 # Variables for copying to scripts
 $wimImagePath = "C:\Path\to\image.wim"     # Path to the WIM image
-$sourceImagePath = "C:\Path\to\image.wim"  # Source path of the WIM image for export
-$sourceIndex = 1                           # Index of the WIM image to export
+$sourceWim = "C:\Path\to\image.wim"  # Source path of the WIM image for export
+$sourceWimIndex = 1                           # Index of the WIM image to export
 $mountDir = "C:\Mount"                     # Directory where the image is mounted
 $driverPath = "C:\Path\to\driver.inf"      # Path to the driver to be added
 $wimImageOc = "C:\Path\to\osd_packages"    # Path to the OSD packages
@@ -503,8 +527,8 @@ $moduleAvailable = $null   # Boolean variable to check if DISM module is availab
 $wimImagePath = "C:\Path\to\image.wim"     # Path to the WIM image
 
 # Export-WimImage variables
-$sourceImagePath = "C:\Path\to\image.wim"  # Source path of the WIM image for export
-$sourceIndex = 1                           # Index of the WIM image to export
+$sourceWim = "C:\Path\to\image.wim"  # Source path of the WIM image for export
+$sourceWimIndex = 1                           # Index of the WIM image to export
 
 # Split-WimImage variables
 $wimImageDirectory = $null                 # Directory of the WIM image
@@ -527,7 +551,7 @@ $mountDir = $null                          # Directory where the image is mounte
 # Invoke-WimImageCleanup variables
 $mountDir = $null                          # Directory where the image is mounted
 
-# Add-WimImageOsdPackages variables
+# Add-WimImageOsdOptComps variables
 $mountDir = $null                          # Directory where the image is mounted
 $wimImageOc = $null                        # Path to the OSD packages
 $wimImageLang = $null                      # Language of the OSD packages
