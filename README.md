@@ -30,9 +30,11 @@ This PowerShell script, **Use-WimImageFunctions.ps1**, is designed to provide a 
 - `Add-WimDriver`: Adds a single driver to a mounted WIM file.
 - `Enable-WimOptFeature`: Enables features in a mounted WimImage by name.
 - `Get-WimImage`: Lists details of a WIM Image using DISM.exe.
-- `Get-WimDrivers`: Lists drivers from a mounted image.
-- `Get-WimPackages`: Lists packages from a mounted image.
-- `Get-WimOptFeature`: Lists optional features from a mounted image.
+- `Get-WimDrivers`: Lists drivers from a mounted image (logging).
+- `Get-WimPackages`: Lists packages from a mounted image (logging).
+- `Get-WimOptFeature`: Lists optional features from a mounted image (logging).
+
+### Sample of Advanced Functions
 - `Get-WimImageCmBoot`: Gets information and settings from an active CM Boot Image.
 
 ### Usage Guidelines

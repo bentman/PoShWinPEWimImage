@@ -237,36 +237,27 @@ function Get-WimOptFeature { # Function to list optional features using DISM.exe
 }
 
 function Get-WimImageCmBoot { # Function to get information and settings from an active CM Boot Image
-# WARNING: Requires running from CM Site Server PSDrive location & UNC path access to Site Content
-# USAGE: Get-WimImageCmBoot -infoCmBootImage $infoCmBootImage -infoOutput $infoOutput
+    # WARNING: Requires running from CM Site Server PSDrive location & UNC path access to Site Content
+    # USAGE: Get-WimImageCmBoot -infoCmBootImage $infoCmBootImage -infoOutput $infoOutput
     [CmdletBinding()]
     param(
-        [Parameter(Mandatory=$true)][string]$infoCmBootImage,   # Name of the CM Boot Image
-        [Parameter(Mandatory=$false)][string]$infoOutput        # Local storage or UNC path for output
+        [Parameter(Mandatory=$true)] [string]$infoCmBootImage,
+        [Parameter(Mandatory=$false)] [string]$infoOutput = "$env:USERPROFILE\Documents\infoCmBootImage.txt"
     )
     try {
-        Write-Host "`nGetting CM boot image information from $infoCmBootImage..."
         $infCmBootImage = Get-CMBootImage -Name $infoCmBootImage
-        Write-Host "`nReferencedDrivers by list..."
-        $infCmBootImage.ReferencedDrivers # drivers
-        Write-Host "`nDeployFromPxeDistributionPoint [true/false]..."
-        $infCmBootImage.DeployFromPxeDistributionPoint # pxe t/f
-        Write-Host "`nEnableLabShell (aka 'F8') [true/false]..."
-        $infCmBootImage.EnableLabShell # f8 t/f 
-        Write-Host "`nPriority by list [high/med/low]..."
-        $infCmBootImage.Priority # high/med/low
-        Write-Host "`nScratchSpace [32-2048]..."
-        $infCmBootImage.ScratchSpace # 512 (kinda moot these days, but Dell was using 2048)
-        Write-Host "`nOptionalComponents [array]..."
-        $infCmBootImage.OptionalComponents # array
-        Write-Host "`nDescription [array]..."
-        $infCmBootImage.Description # plain text
+        $data = "Getting CM boot image information from $infoCmBootImage..." + `
+        "`nDescription:                       $($infCmBootImage.Description)"
+        "ReferencedDrivers:                 $($infCmBootImage.ReferencedDrivers)" + `
+        "DeployFromPxeDistributionPoint:    $($infCmBootImage.DeployFromPxeDistributionPoint)" + `
+        "EnableLabShell (aka 'F8'):         $($infCmBootImage.EnableLabShell)" + `
+        "Priority:                          $($infCmBootImage.Priority)" + `
+        "ScratchSpace:                      $($infCmBootImage.ScratchSpace)" + `
+        "OptionalComponents:                $($infCmBootImage.OptionalComponents)" + `
+        ""
         Push-Location -Path $env:SystemDrive
-        if ($null -eq $infoOutput) {
-            Out-File -FilePath "$env:USERPROFILE\Documents\infoCmBootImage.txt" -InputObject $infCmBootImage
-        } else {
-            Out-File -FilePath "$infoOutput\INFO-$infoCmBootImage.txt" -InputObject $infCmBootImage
-        }
+        Write-Host $data
+        Out-File -FilePath "$infoOutput\INFO-$infoCmBootImage.txt" -InputObject $data
         Pop-Location
     } catch {
         Write-Host "`nAn error occurred while getting CM boot image information from $infoCmBootImage."
@@ -550,3 +541,43 @@ $packagePath = $null                       # Path to the component CAB file
 $languagePackPath = $null                  # Path to the language pack CAB file
 $SWMFiles = $null                          # Array of SWM files created during split operation
 #>
+
+<# 
+function Get-WimImageCmBoot { # Function to get information and settings from an active CM Boot Image
+# WARNING: Requires running from CM Site Server PSDrive location & UNC path access to Site Content
+# USAGE: Get-WimImageCmBoot -infoCmBootImage $infoCmBootImage -infoOutput $infoOutput
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory=$true)][string]$infoCmBootImage,   # Name of the CM Boot Image
+        [Parameter(Mandatory=$false)][string]$infoOutput        # Local storage or UNC path for output
+    )
+    try {
+        Write-Host "`nGetting CM boot image information from $infoCmBootImage..."
+        $infCmBootImage = Get-CMBootImage -Name $infoCmBootImage
+        Write-Host "`nReferencedDrivers by list..."
+        $infCmBootImage.ReferencedDrivers # drivers
+        Write-Host "`nDeployFromPxeDistributionPoint [true/false]..."
+        $infCmBootImage.DeployFromPxeDistributionPoint # pxe t/f
+        Write-Host "`nEnableLabShell (aka 'F8') [true/false]..."
+        $infCmBootImage.EnableLabShell # f8 t/f 
+        Write-Host "`nPriority by list [high/med/low]..."
+        $infCmBootImage.Priority # high/med/low
+        Write-Host "`nScratchSpace [32-2048]..."
+        $infCmBootImage.ScratchSpace # 512 (kinda moot these days, but Dell was using 2048)
+        Write-Host "`nOptionalComponents [array]..."
+        $infCmBootImage.OptionalComponents # array
+        Write-Host "`nDescription [array]..."
+        $infCmBootImage.Description # plain text
+        Push-Location -Path $env:SystemDrive
+        if ($null -eq $infoOutput) {
+            Out-File -FilePath "$env:USERPROFILE\Documents\infoCmBootImage.txt" -InputObject $infCmBootImage
+        } else {
+            Out-File -FilePath "$infoOutput\INFO-$infoCmBootImage.txt" -InputObject $infCmBootImage
+        }
+        Pop-Location
+    } catch {
+        Write-Host "`nAn error occurred while getting CM boot image information from $infoCmBootImage."
+        Write-Error $_.Exception.Message
+        Pop-Location
+    }
+}#>
