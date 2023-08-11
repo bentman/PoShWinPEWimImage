@@ -66,7 +66,7 @@ function Mount-WimImage { # Mount WimImage for customization
     )
     try {
         Write-Host "`nMounting the WimImage at $wimImagePath to $mountDir using index $wimIndex..."
-        Mount-WindowsImage -ImagePath $wimImagePath -Path $mountDir -Index $wimIndex
+        Mount-WindowsImage -ImagePath $wimImagePath -Path $mountDir -wimIndex $wimIndex
     } catch {
         Write-Host "`nAn error occurred while mounting the WimImage:"
         Write-Error $_.Exception.Message
@@ -463,7 +463,7 @@ function Expand-WimImage { # Apply WimImage by Index to path
     )
     try {
         Write-Host "`nExpanding the WimImage at $wimImagePath to $ApplyPath using index: $wimIndex..."
-        Expand-WindowsImage -ImagePath $wimImagePath -ApplyPath $ApplyPath -Index $wimIndex
+        Expand-WindowsImage -ImagePath $wimImagePath -ApplyPath $ApplyPath -wimIndex $wimIndex
     } catch {
         Write-Host "`nAn error occurred while expanding the WimImage:"
         Write-Error $_.Exception.Message
@@ -602,7 +602,7 @@ $infoOutput = "C:\info"
 Mount-WimImage -wimImagePath $wimImagePath -mountDir $mountDir -wimIndex $wimIndex
 # -wimImagePath    :Full Path and File Name of the WimImage to be mounted.
 # -mountDir        :Folder where the WimImage will be mounted for servicing.
-# -Index           :Index of the WimImage to be mounted.
+# -wimIndex           :Index of the WimImage to be mounted.
 ###################################################################################
 
 Add-WimPackage -mountDir $mountDir -packagePath $packagePath
