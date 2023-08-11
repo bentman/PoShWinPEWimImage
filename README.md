@@ -69,7 +69,7 @@ For instance:
 - Some Functions require `ConfigurationManager.psd1` - if you do not know what that is, don't use them! :->
 
 ## Contributions
-Contributions are welcome. Please open an issue or submit a pull request.
+Contributions are welcome. Please open an issue or submit a pull request if you have any suggestions, questions, or would like to contribute to the project.
 
 ### GNU General Public License
 This script is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
