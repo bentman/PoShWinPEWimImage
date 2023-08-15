@@ -15,7 +15,7 @@ if (-not $moduleAvailable) {
         Write-Error $_.Exception.Message
         break
     }
-} else {
+} else {git clone
     Write-Host "`nDISM module confirmed available and loaded."
     $moduleAvailable
 }
@@ -354,9 +354,9 @@ function Get-WimOptFeature { # Function to list optional features using DISM.exe
     }
 }
 
-function New-WimImageCmBoot { # Function to add CM Boot Image
+function New-CmBootWimImage { # Function to add CM Boot Image
     # WARNING: Requires running from CM Site Server PSDrive location & UNC path access to Site Content
-    # USAGE: New-WimImageCmBoot -CmBootWimRoot $cmBootWimRoot -newCmBootFolder $newCmBootFolder -newCmBootName $newCmBootName -sourceBootWim $sourceBootWim 
+    # USAGE: New-CmBootWimImage -CmBootWimRoot $cmBootWimRoot -newCmBootFolder $newCmBootFolder -newCmBootName $newCmBootName -sourceBootWim $sourceBootWim 
     [CmdletBinding()]
     param(
         # Path to CM Boot Image content location
@@ -383,9 +383,9 @@ function New-WimImageCmBoot { # Function to add CM Boot Image
     Pop-Location
 }
 
-function Get-WimImageCmBoot { # Function to get information and settings from an active CM Boot Image
+function Get-CmBootWimImage { # Function to get information and settings from an active CM Boot Image
     # WARNING: Requires running from CM Site Server PSDrive location & UNC path access to Site Content
-    # USAGE: Get-WimImageCmBoot -cmBootWimInfo $cmBootWimInfo -infoOutput $infoOutput
+    # USAGE: Get-CmBootWimImage -cmBootWimInfo $cmBootWimInfo -infoOutput $infoOutput
     [CmdletBinding()]
     param(
         # Name of the CM Boot Wim to gather information from
@@ -417,9 +417,9 @@ function Get-WimImageCmBoot { # Function to get information and settings from an
     }
 }
 
-function Remove-WimImageCmBoot { # Function to remove a CM Boot Image by name and its associated files
+function Remove-CmBootWimImage { # Function to remove a CM Boot Image by name and its associated files
     # WARNING: Requires running from CM Site Server PSDrive location & UNC path access to Site Content
-    # USAGE: Remove-WimImageCmBoot -remCmBootWim $remCmBootWimByName
+    # USAGE: Remove-CmBootWimImage -remCmBootWim $-remCmBootWim
     [CmdletBinding()]
     param(
         # Name of the CM Boot Image to remove (required)
@@ -661,18 +661,18 @@ Get-WimOptFeature -mountDir $mountDir
 # -mountDir        :Folder Path to mounted WimImage.
 ###################################################################################
 
-New-WimImageCmBoot -CmBootWimRoot $cmBootWimRoot -newCmBootFolder $newCmBootFolder -newCmBootName $newCmBootName -sourceBootWim $sourceBootWim
+New-CmBootWimImage -CmBootWimRoot $cmBootWimRoot -newCmBootFolder $newCmBootFolder -newCmBootName $newCmBootName -sourceBootWim $sourceBootWim
 # -CmBootWimRoot   :Path to CM Boot Image content location.
 # -newCmBootFolder :New CM Boot Image Folder Name.
 # -newCmBootName   :New CM Boot Image name.
 # -sourceBootWim   :Source WIM to copy.
 ###################################################################################
 
-Get-WimImageCmBoot -cmBootWimInfo $cmBootWimInfo -infoOutput $infoOutput
+Get-CmBootWimImage -cmBootWimInfo $cmBootWimInfo -infoOutput $infoOutput
 # -cmBootWimInfo   :Name of the CM Boot Wim to gather information from.
 # -infoOutput      :Folder location to store gathered information.
 ###################################################################################
 
-Remove-WimImageCmBoot -remCmBootWim $remCmBootWim
+Remove-CmBootWimImage -remCmBootWim $remCmBootWim
 # -remCmBootWim    :Name of the CM Boot Image to remove.
 ##################################################################################>
