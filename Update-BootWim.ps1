@@ -12,9 +12,10 @@
                      Windows Preinstallation Environment (WinPE)
 #>
 ############################## VARIABLES #############################
-$wimImagePath = "C:\path\to\boot.wim"
-$mountDir = "C:\mount"
-$wimMsuPath = "C:\path\to\package.msu"
+# Output Image Path + Name
+$wimImagePath = "D:\Temp\bentley\Boot-Wim\boot.wim"
+$mountDir = "D:\Temp\bentley\MOUNT"
+$wimMsuPath = "D:\Temp\bentley\windows11.0-kb5028185-x64.msu"
 # Array of optional components added to the WimImage BEFORE updating with *.msu
 $OptComp = @( 
     "WinPE-HTA",
@@ -27,8 +28,7 @@ $OptComp = @(
     "WinPE-SecureBootCmdlets",
     "WinPE-StorageWMI",
     "WinPE-EnhancedStorage",
-    "WinPE-WinReCfg",
-    "WinPE-PlatformId"
+    "WinPE-WinReCfg"
 )
 
 ############################## GENERATED #############################
@@ -37,10 +37,11 @@ $adkArch = "amd64"
 # Edit location of Assessment and Deployment Kit (if different than default)
 $adkRoot = "C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment"
 # ADK Architecture subfolder path for Optional Components
-$adkOptComp = "$adkArch\WinPE_OCs"
+$adkOptComp = "$adkArch\WinPE_OCs" 
 # ADK Optional Components Path
 $adkOptPath = Join-Path -Path $adkRoot -ChildPath $adkOptComp
-
+# Use default WinPE.wim from ADK (or specify alternate)
+$adkImagePath = "$adkRoot\$adkArch\en-us\winpe.wim"
 ############################## FUNCTIONS ###############################
 function Mount-WimImage { # Mount WimImage for customization
     # USAGE: Mount-WimImage -wimImagePath $wimImagePath -mountDir $mountDir -wimIndex $wimIndex
@@ -55,7 +56,7 @@ function Mount-WimImage { # Mount WimImage for customization
     )
     try {
         Write-Host "`nMounting the WimImage at $wimImagePath to $mountDir using index $wimIndex..."
-        Mount-WindowsImage -ImagePath $wimImagePath -Path $mountDir -wimIndex $wimIndex
+        Mount-WindowsImage -ImagePath $wimImagePath -Path $mountDir -Index $wimIndex -Verbose
     } catch {
         Write-Host "`nAn error occurred while mounting the WimImage:"
         Write-Error $_.Exception.Message
@@ -73,22 +74,16 @@ function Add-WimImageOptComps { # Function to add OSD packages to a mounted WimI
         # Language of mounted WimImage
         [Parameter(Mandatory=$false)] [string]$wimLang = 'en-US'
     )
-    if (-not $OptComp) { Write-Error "List of Optional components not specified"; throw }
-    if (-not $adkOptPath) { Write-Error "ADK WinPE_OCs not found in default location"; throw }
     try { foreach ($component in $OptComp) {
-            $optCompCab = "$component.cab"
-            $optCompPath = Join-Path -Path $adkOptPath -ChildPath $optCompCab
-            if (Test-Path -Path $optCompPath) {
-                Write-Host "`nAdding $component to WimImage..."
-                Add-WindowsPackage -Path $mountDir -PackagePath $optCompPath
-            } else {Write-Host "`nCannot find $component at $optCompPath"}
-            $langCab = "$wimLang\$component" + "_$($wimLang).cab"
-            $langCabPath = Join-Path -Path $adkOptPath -ChildPath $langCab
-            if (Test-Path -Path $langCabPath) {
-                Write-Host "`nAdding $wimLang language pack for $component to WimImage..."
-                Add-WindowsPackage -Path $mountDir -PackagePath $langCabPath
-            } else {Write-Host "`nCannot find $wimLang language pack for $component at $langCabPath"}
-        }
+        $optCompCab = "$component.cab"
+        $optCompPath = Join-Path -Path $adkOptPath -ChildPath $optCompCab
+        if (Test-Path -Path $optCompPath) {Add-WindowsPackage -Path $mountDir -PackagePath $optCompPath -Verbose
+            } else {Write-Warning "Cannot find $component at $optCompPath"}
+        $langCab = "$wimLang\$($component)_$($wimLang).cab"
+        $langCabPath = Join-Path -Path $adkOptPath -ChildPath $langCab
+        if (Test-Path -Path $langCabPath) {Add-WindowsPackage -Path $mountDir -PackagePath $langCabPath -Verbose
+        } else {Write-Warning "Cannot find $wimLang language pack for $component at $langCabPath"}
+    }
     } catch {
         Write-Error "`nAn error occurred while adding OSD packages."
         Write-Error $_.Exception.Message
@@ -106,7 +101,7 @@ function Add-WimImageUpdate { # Add Cumulative Update by *.msu (or Optional Comp
     )
     try {
         Write-Host "`nAdding package $wimMsuPath to the mounted WimImage at $mountDir..."
-        Add-WindowsPackage -Path $mountDir -PackagePath $wimMsuPath
+        Add-WindowsPackage -Path $mountDir -PackagePath $wimMsuPath -Verbose
     } catch {
         Write-Host "`nAn error occurred while adding the package:"
         Write-Error $_.Exception.Message
@@ -122,7 +117,7 @@ function Dismount-WimImage { # Dismount WimImage & Save
     )
     try {
         Write-Host "`nDismounting and saving the mounted WimImage at $mountDir..."
-        Dismount-WindowsImage -Path $mountDir -Save
+        Dismount-WindowsImage -Path $mountDir -Save -Verbose
     } catch {
         Write-Host "`nAn error occurred while dismounting and saving the WimImage:"
         Write-Error $_.Exception.Message
@@ -167,7 +162,7 @@ function Export-WimImage { # Function to export a specific index of a Windows Im
             Write-Host "`nExport successful, deleting the temporary file..."
             Remove-Item -Path $tempImageName
         } else {
-            throw "`nExport operation failed. Exported WimImage does not exist. Reverting to original WimImage name."
+            Write-Warning "`nExport operation failed. Exported WimImage does not exist. Reverting to original WimImage name."
         }
     } catch {
         Write-Host "`nAn error occurred while exporting the image index: $exportWimIndex "
@@ -201,21 +196,30 @@ else {Write-Host "`nADK Optional Components are available at default location."
 
 # Read array of optional components to be added to the WimImage when using Add-WimImageOptComps function
 Write-Host "`nADK Optional Components to be added during this session..."
-foreach ($component in $OptionalComponents) {Write-Host "    $component"}
+foreach ($component in $OptComp) {Write-Host "    $component"}
 Write-Host "" # Empty line for logging readability
 
 ############################## EXECUTION ###############################
+# Ensure we are on $env:SystemDrive, not PSDrive for CM-Site
+Push-Location $env:SystemDrive
+
+# Copy Reference WinPE.wim
+Copy-Item -Path $adkImagePath -Destination $wimImagePath
+
 # Mount target boot.wim
-Mount-WimImage -wimImagePath $wimImagePath -mountDir $mountDir -wimIndex 1
+if (-not (Test-Path -Path $wimImagePath)) { Write-Error "$wimImagePath not found"; throw }
+Mount-WimImage -wimImagePath $wimImagePath -mountDir $mountDir -wimIndex '1'
 
 # Add boot.wim OSD Optional Components BEFORE applying *.msu Cumulative Update
+if (-not $OptComp) { Write-Error "List of Optional components not specified"; throw }
+if (-not (Test-Path -Path $adkOptPath)) { Write-Error "ADK WinPE_OCs not found in default location"; throw }
 Add-WimImageOptComps -mountDir $mountDir -OptComp $OptComp -wimLang 'en-us'
 
 # Dismount target boot.wim to commit components before updating
 Dismount-WimImage -mountDir $mountDir
 
 # Mount target boot.wim
-Mount-WimImage -wimImagePath $wimImagePath -mountDir $mountDir -wimIndex 1
+Mount-WimImage -wimImagePath $wimImagePath -mountDir $mountDir -wimIndex '1'
 
 # Apply *.msu Cumulative Update 
 Add-WimImageUpdate -mountDir $mountDir -wimMsuPath $wimMsuPath
@@ -224,7 +228,7 @@ Add-WimImageUpdate -mountDir $mountDir -wimMsuPath $wimMsuPath
 Dismount-WimImage -mountDir $mountDir
 
 # Mount target boot.wim
-Mount-WimImage -wimImagePath $wimImagePath -mountDir $mountDir -wimIndex 1
+Mount-WimImage -wimImagePath $wimImagePath -mountDir $mountDir -wimIndex '1'
 
 # Cleanup boot.wim to disable WinOS components applied from Cumulative update
 Invoke-WimImageCleanup -mountDir $mountDir
@@ -233,4 +237,7 @@ Invoke-WimImageCleanup -mountDir $mountDir
 Dismount-WimImage -mountDir $mountDir
 
 # Export cleaned boot.wim to reduce size by removing updates not intended for WinPE
-Export-WimImage -exportWimImage $wimImagePath -sourceIndex 1
+Export-WimImage -exportWimImage $wimImagePath -exportWimIndex 1
+
+# Return to starting file system location
+Pop-Location
