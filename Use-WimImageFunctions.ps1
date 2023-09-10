@@ -1,37 +1,55 @@
 ﻿############################## DECLARATION #############################
 $scriptName = (Get-PSCallStack).InvocationInfo.MyCommand.Name
-$scriptVer = "2.1" # Align Variables + Usage Examples
+$scriptVer = "2.2" # Optimization
 Write-Host "`nDot-Sourcing functions in $scriptName v$scriptVer..."
 
 ############################## VERIFICATION ############################
-# Check if DISM module is available and loaded
-$moduleAvailable = Get-Module -Name DISM -ListAvailable
-if (-not $moduleAvailable) {
-    try { # If module not available, import it
-        Write-Host "`nImporting DISM module..."
-        Import-Module -Name DISM 
-    } catch {
-        Write-Host "`nFailed to import DISM module:"
-        Write-Error $_.Exception.Message
-        break
-    }
-} else {git clone
-    Write-Host "`nDISM module confirmed available and loaded."
-    $moduleAvailable
+# Check if DISM module is available and load it if needed
+$moduleAvailable = Get-Module -Name DISM -ListAvailable 
+# Set return value to false initially
+$moduleLoaded = $false
+# Trap any errors
+trap {
+  Write-Error $_
+  break
 }
+# Load module if not already available
+if (-not $moduleAvailable) {
+  # Import the module 
+  try {
+    Import-Module -Name DISM -ErrorAction Stop
+    $moduleLoaded = $true
+  } catch {
+    Write-Error "Error importing DISM module: $_"
+  }
+} else {
+  # Module is already available
+  Write-Host "DISM module already loaded"
+  $moduleLoaded = $true
+}
+# Return boolean value indicating if module loaded
+return $moduleLoaded
 
-# ADK Architecture version (x86 removed from ADK, arm64 is not utilized)
-$adkArch = "amd64" 
-# Edit location of Assessment and Deployment Kit (if different than default)
-$adkRoot = "C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment"
-# ADK Architecture subfolder path for Optional Components
-$adkOptComp = "$adkArch\WinPE_OCs"
-# ADK Optional Components Path
-$adkOptPath = Join-Path -Path $adkRoot -ChildPath $adkOptComp
-# Ensure the ADK Optional Components are available
-if (-not (Test-Path -Path $adkOptPath)) {Write-Host "`nADK not found in default location."; break}
-else {Write-Host "`nADK Optional Components are available at default location."
-    Write-Host "`nADK Root = $adkRoot"}
+# Check if ADK is installed and valid
+# ADK root path (allow configuring if default not correct)
+$adkRoot = "C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment" 
+# ADK architecture (default to amd64)
+$adkArch = "amd64"
+# Try to get ADK optional components path
+try {
+  $adkOptPath = Get-ChildItem -Path $adkRoot -Filter "$adkArch\WinPE_OCs" -ErrorAction Stop
+} catch {
+  Write-Error "Error getting ADK optional components path: $_"
+  return $false
+}
+# Check if optional components exist
+if (-not (Test-Path -Path $adkOptPath)) {
+  Write-Error "ADK not found at $adkRoot" 
+  return $false
+}
+# If no errors, ADK is valid
+Write-Output "ADK available at: $adkRoot"
+return $true
 
 # Edit array of optional components to be added to the WimImage when using Add-WimImageOptComps function
 $OptionalComponents = @( # These are the most common blend of "traditional" and "modern" OC's for CM/Intune
