@@ -43,111 +43,127 @@ $adkOptPath = Join-Path -Path $adkRoot -ChildPath $adkOptComp
 # Use default WinPE.wim from ADK (or specify alternate)
 $adkImagePath = "$adkRoot\$adkArch\en-us\winpe.wim"
 ############################## FUNCTIONS ###############################
-function Mount-WimImage { # Mount WimImage for customization
+function Mount-WimImage {
+    # Mount WimImage for customization
     # USAGE: Mount-WimImage -wimImagePath $wimImagePath -mountDir $mountDir -wimIndex $wimIndex
     [CmdletBinding()]
     param(
         # Full Path and File Name ($_.FullName) of WimImage to be mounted
-        [Parameter(Mandatory=$true)] [string]$wimImagePath,
+        [Parameter(Mandatory = $true)] [string]$wimImagePath,
         # Folder where WimImage will be mounted for servicing
-        [Parameter(Mandatory=$true)] [string]$mountDir,
+        [Parameter(Mandatory = $true)] [string]$mountDir,
         # WimImage index to be mounted
-        [Parameter(Mandatory=$false)] [int]$wimIndex = '1'
+        [Parameter(Mandatory = $false)] [int]$wimIndex = '1'
     )
     try {
         Write-Host "`nMounting the WimImage at $wimImagePath to $mountDir using index $wimIndex..."
         Mount-WindowsImage -ImagePath $wimImagePath -Path $mountDir -Index $wimIndex -Verbose
-    } catch {
+    }
+    catch {
         Write-Host "`nAn error occurred while mounting the WimImage:"
         Write-Error $_.Exception.Message
     }
 }
 
-function Add-WimImageOptComps { # Function to add OSD packages to a mounted WimImage. 
+function Add-WimImageOptComps {
+    # Function to add OSD packages to a mounted WimImage. 
     # USAGE: Add-WimImageOptComps -mountDir $mountDir -OptComp $OptComp -wimLang $wimLang
     [CmdletBinding()]
     param(
         # Folder Path to mounted WimImage
-        [Parameter(Mandatory=$true)] [string]$mountDir,
+        [Parameter(Mandatory = $true)] [string]$mountDir,
         # Array containing list of Optional Components to add
-        [Parameter(Mandatory=$true)] [string[]]$OptComp,
+        [Parameter(Mandatory = $true)] [string[]]$OptComp,
         # Language of mounted WimImage
-        [Parameter(Mandatory=$false)] [string]$wimLang = 'en-US'
+        [Parameter(Mandatory = $false)] [string]$wimLang = 'en-US'
     )
-    try { foreach ($component in $OptComp) {
-        $optCompCab = "$component.cab"
-        $optCompPath = Join-Path -Path $adkOptPath -ChildPath $optCompCab
-        if (Test-Path -Path $optCompPath) {Add-WindowsPackage -Path $mountDir -PackagePath $optCompPath -Verbose
-            } else {Write-Warning "Cannot find $component at $optCompPath"}
-        $langCab = "$wimLang\$($component)_$($wimLang).cab"
-        $langCabPath = Join-Path -Path $adkOptPath -ChildPath $langCab
-        if (Test-Path -Path $langCabPath) {Add-WindowsPackage -Path $mountDir -PackagePath $langCabPath -Verbose
-        } else {Write-Warning "Cannot find $wimLang language pack for $component at $langCabPath"}
+    try {
+        foreach ($component in $OptComp) {
+            $optCompCab = "$component.cab"
+            $optCompPath = Join-Path -Path $adkOptPath -ChildPath $optCompCab
+            if (Test-Path -Path $optCompPath) {
+                Add-WindowsPackage -Path $mountDir -PackagePath $optCompPath -Verbose
+            }
+            else { Write-Warning "Cannot find $component at $optCompPath" }
+            $langCab = "$wimLang\$($component)_$($wimLang).cab"
+            $langCabPath = Join-Path -Path $adkOptPath -ChildPath $langCab
+            if (Test-Path -Path $langCabPath) {
+                Add-WindowsPackage -Path $mountDir -PackagePath $langCabPath -Verbose
+            }
+            else { Write-Warning "Cannot find $wimLang language pack for $component at $langCabPath" }
+        }
     }
-    } catch {
+    catch {
         Write-Error "`nAn error occurred while adding OSD packages."
         Write-Error $_.Exception.Message
     }
 }
 
-function Add-WimImageUpdate { # Add Cumulative Update by *.msu (or Optional Component by *.cab) to a mounted WimImage
+function Add-WimImageUpdate {
+    # Add Cumulative Update by *.msu (or Optional Component by *.cab) to a mounted WimImage
     # USAGE: Add-WimImageUpdate -mountDir $mountDir -wimMsuPath $wimMsuPath
     [CmdletBinding()]
     param(
         # Folder Path to mounted WimImage
-        [Parameter(Mandatory=$true)] [string]$mountDir,
+        [Parameter(Mandatory = $true)] [string]$mountDir,
         # Full Path and File Name ($_.FullName) of *.msu (or *.cab)
-        [Parameter(Mandatory=$true)] [string]$wimMsuPath
+        [Parameter(Mandatory = $true)] [string]$wimMsuPath
     )
     try {
         Write-Host "`nAdding package $wimMsuPath to the mounted WimImage at $mountDir..."
         Add-WindowsPackage -Path $mountDir -PackagePath $wimMsuPath -Verbose
-    } catch {
+    }
+    catch {
         Write-Host "`nAn error occurred while adding the package:"
         Write-Error $_.Exception.Message
     }
 }
 
-function Dismount-WimImage { # Dismount WimImage & Save
+function Dismount-WimImage {
+    # Dismount WimImage & Save
     # USAGE: Dismount-WimImage -mountDir $mountDir
     [CmdletBinding()]
     param(
         # Folder Path to mounted WimImage
-        [Parameter(Mandatory=$true)] [string]$mountDir
+        [Parameter(Mandatory = $true)] [string]$mountDir
     )
     try {
         Write-Host "`nDismounting and saving the mounted WimImage at $mountDir..."
         Dismount-WindowsImage -Path $mountDir -Save -Verbose
-    } catch {
+    }
+    catch {
         Write-Host "`nAn error occurred while dismounting and saving the WimImage:"
         Write-Error $_.Exception.Message
     }
 }
 
-function Invoke-WimImageCleanup { # Function to perform cleanup operations on a mounted Windows Image (WIM) file
+function Invoke-WimImageCleanup {
+    # Function to perform cleanup operations on a mounted Windows Image (WIM) file
     # USAGE: Invoke-WimImageCleanup -mountDir $mountDir 
     [CmdletBinding()]
     param(
         # Path to the mounted WIM directory
-        [Parameter(Mandatory=$true)] [string]$mountDir
+        [Parameter(Mandatory = $true)] [string]$mountDir
     )
     try {
         Write-Host "`nPerforming cleanup operations on mounted WimImage at $mountDir..."
         & Dism "/Image:$mountDir" '/Cleanup-Image' '/StartComponentCleanup' '/ResetBase'
-    } catch {
+    }
+    catch {
         Write-Host "`nAn error occurred while performing cleanup operations."
         Write-Error $_.Exception.Message
     }
 }
 
-function Export-WimImage { # Function to export a specific index of a Windows Image (WIM) file
+function Export-WimImage {
+    # Function to export a specific index of a Windows Image (WIM) file
     # USAGE: Export-WimImage -exportWimImage $exportWimImage -exportWimIndex 1
     [CmdletBinding()]
     param(
         # Path to the source WimImage to be exported
-        [Parameter(Mandatory=$true)] [string]$exportWimImage,
+        [Parameter(Mandatory = $true)] [string]$exportWimImage,
         # Index of the WimImage to export
-        [Parameter(Mandatory=$false)] [int]$exportWimIndex = '1'
+        [Parameter(Mandatory = $false)] [int]$exportWimIndex = '1'
     )
     $tempImageName = [IO.Path]::ChangeExtension($exportWimImage, "tmp")
     try {
@@ -161,10 +177,12 @@ function Export-WimImage { # Function to export a specific index of a Windows Im
         if (Test-Path -Path $exportWimImage) {
             Write-Host "`nExport successful, deleting the temporary file..."
             Remove-Item -Path $tempImageName
-        } else {
+        }
+        else {
             Write-Warning "`nExport operation failed. Exported WimImage does not exist. Reverting to original WimImage name."
         }
-    } catch {
+    }
+    catch {
         Write-Host "`nAn error occurred while exporting the image index: $exportWimIndex "
         Write-Error $_.Exception.Message
         Write-Host "`nReverting to the original WimImage name..."
@@ -176,27 +194,32 @@ function Export-WimImage { # Function to export a specific index of a Windows Im
 # Check if DISM module is available and loaded
 $moduleAvailable = Get-Module -Name DISM -ListAvailable
 if (-not $moduleAvailable) {
-    try { # If module not available, import it
+    try {
+        # If module not available, import it
         Write-Host "`nImporting DISM module..."
         Import-Module -Name DISM 
-    } catch {
+    }
+    catch {
         Write-Host "`nFailed to import DISM module:"
         Write-Error $_.Exception.Message
         return
     }
-} else {
+}
+else {
     Write-Host "`nDISM module confirmed available and loaded."
     $moduleAvailable
 }
 
 # Ensure the ADK Optional Components are available
-if (-not (Test-Path -Path $adkOptPath)) {Write-Error "`nADK not found in default location."; return}
-else {Write-Host "`nADK Optional Components are available at default location."
-    Write-Host "`nADK Root = $adkRoot"}
+if (-not (Test-Path -Path $adkOptPath)) { Write-Error "`nADK not found in default location."; return }
+else {
+    Write-Host "`nADK Optional Components are available at default location."
+    Write-Host "`nADK Root = $adkRoot"
+}
 
 # Read array of optional components to be added to the WimImage when using Add-WimImageOptComps function
 Write-Host "`nADK Optional Components to be added during this session..."
-foreach ($component in $OptComp) {Write-Host "    $component"}
+foreach ($component in $OptComp) { Write-Host "    $component" }
 Write-Host "" # Empty line for logging readability
 
 ############################## EXECUTION ###############################
