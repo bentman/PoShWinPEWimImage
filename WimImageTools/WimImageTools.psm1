@@ -8,7 +8,7 @@ WimImageTools.psm1
     Configuration Manager (CM) boot images and performing various WIM-related operations.
 .NOTES
     Version: 2.0
-    Creation Date: 2024-08-111
+    Creation Date: 2024-08-11
     Copyright (c) 2024 https://github.com/bentman
     https://github.com/bentman/PoShWinPEWimImage
 #>
