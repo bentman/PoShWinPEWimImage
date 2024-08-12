@@ -1,3 +1,6 @@
+### NEW! Added functions to module!
+`.\WimImageTools\WimImageTools.psm1`
+
 ### Overview
 
 This PowerShell script, **Use-WimImageFunctions.ps1**, is designed to provide a set of functions that facilitate customization of Windows Preinstallation Environment (WinPE) and Windows Recovery Environment (WinRE) images. The script utilizes the DISM (Deployment Image Servicing and Management) module to perform various operations on WIM (Windows Imaging) files.
