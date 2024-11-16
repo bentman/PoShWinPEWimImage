@@ -1,85 +1,87 @@
-### NEW! Added functions to module!
-`.\WimImageTools\WimImageTools.psm1`
+# Wim Image Tools
 
 ### Overview
 
-This PowerShell script, **Use-WimImageFunctions.ps1**, is designed to provide a set of functions that facilitate customization of Windows Preinstallation Environment (WinPE) and Windows Recovery Environment (WinRE) images. The script utilizes the DISM (Deployment Image Servicing and Management) module to perform various operations on WIM (Windows Imaging) files.
+This PowerShell script, **Use-WimImageFunctions.ps1**, provides a comprehensive set of functions for customizing Windows Preinstallation Environment (WinPE) and Windows Recovery Environment (WinRE) images using the DISM module. It is designed to be dot-sourced and integrated into larger automation workflows.
 
-### Setup the Environment
+### Setup
 
-- Configure the optional components to be added to the WIM image.
+Configure the optional components and ADK settings (default values shown):
 
+```powershell
+$OsdOptComps = @(
+    "WinPE-HTA",
+    "WinPE-MDAC",
+    "WinPE-Scripting",
+    "WinPE-WMI",
+    "WinPE-NetFX",
+    "WinPE-PowerShell",
+    "WinPE-PlatformId"
+)
+
+$adkArch = "amd64"
+$adkRoot = "C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment"
+```
+
+### Key Functions
+
+- `Mount-Wim`: Mounts a Wim image for servicing.
+- `Dismount-Wim`: Dismounts a mounted Wim image and saves changes.
+- `Add-WimDriver`: Adds a single driver to a mounted Wim image.
+- `Add-WimDrivers`: Adds multiple drivers to a mounted Wim image recursively.
+- `Add-WimUpdate`: Adds updates (.msu) or packages (.cab) to a mounted Wim image.
+- `Invoke-WimCleanup`: Performs cleanup on a mounted Wim image.
+- `Export-WimImage`: Exports a specific index from a Wim image.
+- `Split-Wim`: Splits a Wim image into smaller .swm files.
+- `Enable-WimOptionalFeature`: Enables optional features in a mounted Wim image.
+- `Disable-WimOptionalFeature`: Disables optional features in a mounted Wim image.
+- `Get-WimImage`: Retrieves details of a Wim image using DISM.
+- `Remove-WimDriversAll`: Removes all OEM drivers from a mounted Wim image.
+
+### Advanced Functions (requires `ConfigurationManager.psd1`)
+
+- `Get-CmBootWimImage`: Retrieves information from an active CM Boot Image.
+- `Remove-CmBootWimImage`: Removes a CM Boot Image and its associated files.
+
+### Usage
+
+1. Clone the repository to your local machine.
+2. Open PowerShell and navigate to the script directory.
+3. Dot-source the script to load the functions:
     ```powershell
-    $OsdOptComps = @(
-        "WinPE-HTA",
-        "WinPE-MDAC",
-        ...
-        "WinPE-PlatformId"
-    )
+    . .\Use-WimImageFunctions.ps1
     ```
 
-- Set the architecture &location of the Assessment and Deployment Kit (ADK). Defaults shown below:
+4. Use the loaded functions in your scripts or execute them directly in the PowerShell session.
 
+### Examples
+
+- Clean up a mounted Wim image:
     ```powershell
-    $adkArch = "amd64"
-    $adkRoot = "C:\Program Files (x86)\Windows Kits\10\Assessment and Deployment Kit\Windows Preinstallation Environment"
+    Invoke-WimCleanup -mountDir "C:\mount"
     ```
 
-### Sample of Functions
-
-- `Add-WimDriver`: Adds a single driver to a mounted WIM file.
-- `Add-WimDrivers`: Adds multiple drivers to a mounted WIM file.
-- `Add-WimImageOsdOptComps`: Adds ADK OptionalComponents to a mounted WIM image.
-- `Add-WimImageUpdate`: Add Updates by *.msu or Packages by *.cab to a mounted WimImage
-- `Invoke-WimImageCleanup`: Performs cleanup operations on a mounted WIM file.
-- `Export-WimImage`: Exports a specific index of a WIM file.
-- `Enable-WimOptFeature`: Enables Optional Features to a mounted WimImage by name.
-- `Get-WimImage`: Lists details of a WIM Image using DISM.exe (logging).
-- `Get-WimDrivers`: Lists drivers from a mounted image using DISM.exe (logging).
-- `Get-WimPackages`: Lists packages from a mounted image using DISM.exe (logging).
-- `Get-WimOptFeature`: Lists optional features from a mounted image using DISM.exe (logging).
-
-### Sample of Advanced Functions (requires `ConfigurationManager.psd1` loaded from Site PSDrive)
-- `Get-CmBootWimImage`: Get information and settings from an active CM Boot Image.
-- `Remove-CmBootWimImage`: Remove a CM Boot Image by name and its associated files.
-
-### Usage Guidelines
-
-1. Clone or download the repository to your local machine.
-2. Open PowerShell and navigate to the repository's directory.
-3. Dot-source the script to load the functions into your current PowerShell session.
-
-   Example: `. .\Use-WimImageFunctions.ps1`
-5. Utilize the loaded functions in your scripts or directly execute them in the PowerShell session.
-
-**Note:** These functions are provided as reference tools and might require adaptations to suit your specific customization needs. 
-Always ensure a thorough understanding of the functions before using them in a production environment.
-
-## Examples
-
-Tested functions provided will contain a `# USAGE:...` comment basic usage instructions. 
-For instance:
-- To cleanup a mounted WIM:
+- Add optional components:
     ```powershell
-    Invoke-WimImageCleanup -mountDir "path_to_mounted_WIM"
+    Add-WimOptionalComponents -mountDir "C:\mount" -optComp $OsdOptComps -wimLang 'en-US'
     ```
-- To add OSD packages:
+
+- Export a specific index from a Wim image:
     ```powershell
-    Add-WimImageOsdOptComps -mountDir "path_to_mounted_WIM" -OsdOptComp $OsdOptComp -wimImageLang 'en-us'
+    Export-WimImage -sourceWim "C:\path\to\image.wim" -destWim "C:\path\to\exported.wim" -index 1
     ```
 
 ### Requirements
-- Windows operating system with PowerShell installed.
-- Windows Assessment and Deployment Kit (ADK) installed.
-- Windows ADK Preinstallation Environment
-- Some Functions require `ConfigurationManager.psd1` - if you do not know what that is, don't use them! :->
 
-## Contributions
-Contributions are welcome. Please open an issue or submit a pull request if you have any suggestions, questions, or would like to contribute to the project.
+- PowerShell 5.1 or later
+- Windows Assessment and Deployment Kit (ADK)
+- Administrative privileges
 
-### GNU General Public License
-This script is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+### Contributions
 
-This script is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+Contributions are welcome! Please open an issue or submit a pull request if you have suggestions or enhancements.
 
-You should have received a copy of the GNU General Public License along with this script.  If not, see <https://www.gnu.org/licenses/>.
+### License
+
+This project is licensed under the GNU General Public License v3. See [GNU GPL v3](https://www.gnu.org/licenses/gpl-3.0.html) for details.
+This script is distributed without any warranty; use at your own risk.
